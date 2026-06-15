@@ -54,8 +54,8 @@ services:
       S3_ENDPOINT_URL: 'http://minio:9000'
       AWS_ACCESS_KEY_ID: 'root'
       AWS_SECRET_ACCESS_KEY: 'password'
-      DEFAULT_FS: 's3a://brozne/'
-      HIVE_WAREHOUSE_PATH: 's3a://brozne/warehouse/'
+      DEFAULT_FS: 's3a://sandbox/'
+      HIVE_WAREHOUSE_PATH: 's3a://sandbox/warehouse/'
       HADOOP_CLASSPATH: '/opt/hadoop/share/hadoop/tools/lib/*' #cài cái này để hive hiểu được giao thức s3a
     ports:
       - "9083:9083"
