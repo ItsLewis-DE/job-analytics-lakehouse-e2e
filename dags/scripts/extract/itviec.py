@@ -20,115 +20,123 @@ def extract_job_details(soup):
         title_elem = soup.select_one('h1')
         job_title = title_elem.text.strip() if title_elem else None
         
-        salary_elem = soup.select_one('.svg-icon__salary')
-        if not salary_elem:
-            salary_elem = soup.select_one('.job-details__salary')
-        if not salary_elem:
-            salary_elem = soup.select_one('.salary')
-        salary = salary_elem.text.strip() if salary_elem else None
-        
-        place_elem = soup.select_one('.svg-icon__location')
-        if not place_elem:
-             place_elem = soup.select_one('.location')
-        if not place_elem:
-             place_elem = soup.select_one('.job-details__location')
+        place_elem = soup.select_one('.normal-text.text-rich-grey')
         place = place_elem.text.strip() if place_elem else None
         
-        experience_elem = soup.select_one('.svg-icon__experience')
-        if not experience_elem:
-            experience_elem = soup.select_one('.experience')
-        experience = experience_elem.text.strip() if experience_elem else None
+        is_accepted_intern_ele = soup.select_one('.text-reset.normal-text')
+        is_accepted_intern = is_accepted_intern_ele.text.strip() if is_accepted_intern_ele else None
+
+        working_type_ele = soup.select_one('.normal-text.text-rich-grey.ms-1')
+        working_type = working_type_ele.text.strip() if working_type_ele else None
+
+        skills = []
+        skills_list = soup.select('.d-flex.flex-wrap.igap-2 >a')
+        for skill_ele in skills_list:
+            skill = skill_ele.text.strip() if skill_ele else None
+            skills.append(skill)
         
-        yeu_cau = []
-        chuyen_mon = []
-        # ITviec usually has skills in a tags or span tags
-        skill_tags = soup.select('.job-details__tag-list a, .job-details__skill-list span, .tag-list a, .skill-list span, a.anchor.ipp')
-        if skill_tags:
-            chuyen_mon = [tag.text.strip() for tag in skill_tags]
-            
-        name_company_elem = soup.select_one('.employer-name, .company-name, .job-details__company-name')
-        name_company = name_company_elem.text.strip() if name_company_elem else None
-        
-        scale_elem = soup.select_one('.svg-icon__group')
-        scale = scale_elem.text.strip() if scale_elem else None
-        
-        field_elem = soup.select_one('.svg-icon__industry')
-        field = field_elem.text.strip() if field_elem else None
-        
-        address_elem = soup.select_one('.svg-icon__location_pin')
-        address = address_elem.text.strip() if address_elem else None
-        
+        company_name = None
+        company_industry=None
+        company_size=None
+        company_place=None
+        working_days=None
+
+        list_info_company = soup.select('.imt-4 > .row.ipy-2.gx-0.border-bottom-dashed')
+        for info in list_info_company:
+            type_ele = info.select_one('.col.text-dark-grey')
+            type = type_ele.text.strip() if type_ele else None
+            if type == 'Company type':
+                company_name = info.select_one('.col.text-end.text-it-black').text.strip()
+            elif type == 'Company industry':
+                company_industry = info.select_one('.d-inline-flex.text-wrap').text.strip()
+            elif type == 'Company size':
+                company_size = info.select_one('.col.text-end.text-it-black').text.strip()
+            elif type=='Country':
+                company_place = info.select_one('span.align-middle').text.strip()
+            elif type=='Working days':
+                working_days = info.select_one('.col.text-end.text-it-black').text.strip()
+        company_link = soup.select_one('.ipt-3.ipt-xl-1.ipb-2.text-clamp-3 >a ').get('href')
+        company_link = 'https://itviec.com' + company_link
+        list_demand = soup.select('.imy-5.paragraph')
+        job_demands = []
+        job_benefits = []
+        for i, item in enumerate(list_demand):
+            if i == 1:
+                demand_ele = item.select('li')
+                for demand in demand_ele:
+                    job_demands.append(demand.text.strip())
+            elif i == len(list_demand)-1:
+                benefit_ele = item.select('li')
+                for benefit in benefit_ele:
+                    job_benefits.append(benefit.text.strip())
+
         return {
             'job_title': job_title,
-            'salary': salary,
-            'deadline': None, # ITviec might not show deadline explicitly
             'place': place,
-            'experience': experience,
-            'yeu_cau': yeu_cau,
-            'chuyen_mon': chuyen_mon,
-            'name_company': name_company,
-            'scale': scale,
-            'field': field,
-            'address': address,
-            'link_company': None 
+            'is_accepted_intern': is_accepted_intern,
+            'working_type': working_type,
+            'skills': skills,
+            'company_name': company_name,
+            'company_industry': company_industry,
+            'company_size': company_size,
+            'company_place': company_place,
+            'company_link':company_link,
+            'working_days': working_days,
+            'demands': job_demands,
+            'benefits': job_benefits,
         }
     except Exception as e:
         logger.error(f"Lỗi khi parse chi tiết công việc: {e}")
         return None
 
 def crawl_data():
-    all_jobs_data = []
-    page = 1
-    
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
     with SB(uc=True, headless=True) as sb:
-        while True:
-            # Construct page URL
-            url = f"{url_base}&page={page}"
-            logger.info(f"=== Đang mở trang danh sách việc làm trang {page} ===")
-            sb.get(url)
-            sb.sleep(3)
-            html = sb.get_page_source()
-            soup = BeautifulSoup(html, 'lxml')
-            
-            job_links_tags = soup.select('h3 a')
-            job_urls = []
-            for a in job_links_tags:
-                href = a.get('href')
-                if href and '/it-jobs/' in href:
-                    if href.startswith('/'):
-                        href = 'https://itviec.com' + href
-                    job_urls.append(href)
-            
-            if not job_urls:
-                logger.info(f"Không tìm thấy việc làm nào trên trang {page}. Đã duyệt hết các trang!")
-                break
+        url = url_base
+        logger.info(f"=== Đang mở trang danh sách việc làm ===")
+        sb.get(url)
+        sb.sleep(3)
+        html = sb.get_page_source()
+        soup = BeautifulSoup(html, 'lxml')
+        
+        job_links_tags = soup.select('h3 a')
+        job_urls = []
+        for a in job_links_tags:
+            href = a.get('href')
+            if href and '/it-jobs/' in href:
+                if href.startswith('/'):
+                    href = 'https://itviec.com' + href
+                job_urls.append(href)
+                   
+        logger.info(f"Tìm thấy {len(job_urls)} công việc trên trang")
+        
+        job_total = 0
+        all_jobs_data = []
+        for job_url in job_urls:
+            job_total+=1
+            logger.info(f"Đang lấy chi tiết: {job_url}")
+            try:
+                sb.get(job_url)
+                sb.sleep(3)
+                html_job = sb.get_page_source()
+                job_soup = BeautifulSoup(html_job, 'lxml')
                 
-            logger.info(f"Tìm thấy {len(job_urls)} công việc trên trang {page}")
+                job_data = extract_job_details(job_soup)
+                if job_data:
+                    job_data['job_url'] = job_url
+                    all_jobs_data.append(job_data)
+                    logger.info(f"-> Đã lấy thành công: {job_data['job_title']}")
+            except Exception as e:
+                logger.error(f"Lỗi khi truy cập {job_url}: {e}")
+            if job_total %10==0:
+                with open(f'{DATA_DIR}/itviec_jobs.json', 'a', encoding='utf-8') as f:
+                    json.dump(all_jobs_data, f, ensure_ascii=False, indent=4)
+                all_jobs_data = []
+        # Lưu dữ liệu cuối cùng
+        with open(f'{DATA_DIR}/itviec_jobs.json', 'w', encoding='utf-8') as f:
+            json.dump(all_jobs_data, f, ensure_ascii=False, indent=4)
             
-            for job_url in job_urls:
-                logger.info(f"Đang lấy chi tiết: {job_url}")
-                try:
-                    sb.get(job_url)
-                    sb.sleep(3)
-                    html_job = sb.get_page_source()
-                    job_soup = BeautifulSoup(html_job, 'lxml')
-                    
-                    job_data = extract_job_details(job_soup)
-                    if job_data:
-                        job_data['job_url'] = job_url
-                        all_jobs_data.append(job_data)
-                        logger.info(f"-> Đã lấy thành công: {job_data['job_title']}")
-                except Exception as e:
-                    logger.error(f"Lỗi khi truy cập {job_url}: {e}")
-            
-            # Lưu dữ liệu sau mỗi trang để tránh mất mát nếu có lỗi
-            DATA_DIR.mkdir(parents=True, exist_ok=True)
-            with open(f'{DATA_DIR}/itviec_jobs.json', 'w', encoding='utf-8') as f:
-                json.dump(all_jobs_data, f, ensure_ascii=False, indent=4)
-                
-            page += 1
-            
-    logger.info(f"Hoàn thành! Đã lấy xong tổng cộng {len(all_jobs_data)} việc làm và lưu vào file itviec_jobs.json")
+    logger.info(f"Hoàn thành! Đã lấy xong tổng cộng {job_total} việc làm và lưu vào file itviec_jobs.json")
 
 if __name__ == "__main__":
     crawl_data()
