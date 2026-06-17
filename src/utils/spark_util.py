@@ -13,22 +13,22 @@ def get_spark_session(app_name: str) -> SparkSession:
 
     builder = SparkSession.builder.appName(app_name)
 
-    # 3. Cấu hình S3A cho MinIO (Luôn cần dù chạy trong Docker hay ngoài)
-    builder = builder \
-        .config("spark.hadoop.fs.s3a.endpoint", minio_endpoint) \
-        .config("spark.hadoop.fs.s3a.access.key", minio_access_key) \
-        .config("spark.hadoop.fs.s3a.secret.key", minio_secret_key) \
-        .config("spark.hadoop.fs.s3a.path.style.access", "true") \
-        .config("spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem") \
-        .config("spark.hadoop.fs.s3a.connection.ssl.enabled", "false")
+    if not is_docker:
+        builder = builder \
+            .config("spark.hadoop.fs.s3a.endpoint", minio_endpoint) \
+            .config("spark.hadoop.fs.s3a.access.key", minio_access_key) \
+            .config("spark.hadoop.fs.s3a.secret.key", minio_secret_key) \
+            .config("spark.hadoop.fs.s3a.path.style.access", "true") \
+            .config("spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem") \
+            .config("spark.hadoop.fs.s3a.connection.ssl.enabled", "false")
 
-    # 4. Cấu hình Hive & Iceberg (Cần thiết để quản lý metadata bảng)
-    builder = builder \
-        .config("spark.sql.catalog.my_catalog", "org.apache.iceberg.spark.SparkCatalog") \
-        .config("spark.sql.catalog.my_catalog.type", "hive") \
-        .config("spark.sql.catalog.my_catalog.uri", hive_metastore_uri) \
-        .config("spark.sql.catalog.my_catalog.warehouse", "s3a://sandbox/warehouse/") \
-        .enableHiveSupport()
+        # 4. Cấu hình Hive & Iceberg (Cần thiết để quản lý metadata bảng)
+        builder = builder \
+            .config("spark.sql.catalog.my_catalog", "org.apache.iceberg.spark.SparkCatalog") \
+            .config("spark.sql.catalog.my_catalog.type", "hive") \
+            .config("spark.sql.catalog.my_catalog.uri", hive_metastore_uri) \
+            .config("spark.sql.catalog.my_catalog.warehouse", "s3a://sandbox/warehouse/") \
+            .enableHiveSupport()
 
     # Khởi tạo Spark Session
     spark = builder.getOrCreate()
