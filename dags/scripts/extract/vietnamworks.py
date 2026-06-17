@@ -5,6 +5,7 @@ import time
 import json
 import os
 from pathlib import Path
+from pyspark.sql.types import StructType, StructField, StringType, ArrayType
 from dotenv import load_dotenv
 from pyspark.sql import SparkSession
 import boto3
@@ -68,62 +69,79 @@ def extract_job_details(soup):
         
         salary_elem = soup.select_one('.sc-ab270149-0.cVbwLK')
         salary = salary_elem.text.strip() if salary_elem else None
+
+        is_urgent_elem = soup.select_one('.sc-ab270149-0.guKwvE')
+        is_urgent = is_urgent_elem.text.strip() if is_urgent_elem else None
+        
+        deadline_elem = soup.select_one('.sc-ab270149-0.ePOHWr')
+        deadline = deadline_elem.text.strip() if deadline_elem else None
         
         place_elem = soup.select_one('.sc-ab270149-0.ePOHWr')
         place = place_elem.text.strip() if place_elem else None
-        
-        experience_elem = soup.select_one('.sc-7bf5461f-2.JtIju .sc-ab270149-0.cLLblL')
-        experience = experience_elem.text.strip() if experience_elem else None
 
-        working_hour_ele = soup.select_one('.sc-7bf5461f-1.jseBPO .sc-ab270149-0.cLLblL' )
-        working_hour = working_hour_ele.text.strip() if working_hour_ele else None
+        list_info = soup.select('.sc-7bf5461f-0.dHvFzj .sc-f098d520-0.dpBvbX')
+        level=None
+        skills=None
+        field=None
+        experience=None
+        education=None
+        year=None
+        slot=None
+        working_day=None
+        working_hour=None
+        working_type=None
+        age=None
+        for i,info in enumerate(list_info):
+            value_ele = info.select_one('.sc-ab270149-0.cLLblL')
+            value = value_ele.text.strip() if value_ele else None
+            if i==1:
+                level=value
+            elif i==3:
+                skills=value
+            elif i==4:
+                value_2 = info.select_one('span')
+                field = value_2.text.strip() if value_2 else None
+            elif i==6:
+                experience=value
+            elif i==8:
+                education=value
+            elif i==10:
+                age=value
+            elif i==12:
+                slot=value
+            elif i==13:
+                working_day=value
+            elif i==14:
+                working_hour=value
+            elif i==15:
+                working_type=value
 
-        working_day_ele = soup.select_one('.sc-7bf5461f-2.JtIju .sc-ab270149-0.cLLblL')
-        working_day = working_day_ele.text.strip() if working_day_ele else None
+        link_company_elem = soup.select_one('.sc-ab270149-0.egZKeY.sc-f0821106-0.gWSkfE')
+        link_company = link_company_elem.get('href') if link_company_elem else None
+        name_company = link_company_elem.text.strip() if link_company_elem else None
+        
+        info_company = soup.select('.sc-37577279-4.kNdlhJ > .sc-37577279-5.kQCIWi')
+        address_company =None
+        company_size=None
+        for i,info in enumerate(info_company):
+            value_ele = info.select_one('.sc-ab270149-0.ePOHWr')
+            value = value_ele.text.strip() if value_ele else None
+            if i==0:
+                address_company = value
+            elif i ==1:
+                company_size=value
 
-        age_ele = soup.select_one('.sc-7bf5461f-1.jseBPO .sc-ab270149-0.cLLblL' )
-        age = age_ele.text.strip() if age_ele else None
-
-        education_ele = soup.select_one('.sc-7bf5461f-2.JtIju sc-ab270149-0.cLLblL')
-        education = education_ele.text.strip() if education_ele else None
-
-
-        yeu_cau = []
-        # Vietnamworks skill tags
-        skill_elem = soup.select_one('.sc-ab270149-0.cLLblL')
-        skill = [','].join(skill_elem.text.strip().split(',')) if skill_ele else None
-        
-        tags = soup.select('.sc-1671001a-6.dVvinc p')
-        yeu_cau = [tag.text.strip() for tag in tags]
-        deadline_ele = soup.select_one('.sc-ab270149-0.ePOHWr')
-        deadline = deadline_ele.text.strip() if deadline_ele else None
-        link_company_elem = spup.select_one('.sc-ab270149-0.egZKeY.sc-f0821106-0.gWSkfE')
-        link_company = link_company.elem.text.strip() if link_company_elem else None
-        name_company_elem = soup.select_one('.company-name') or soup.select_one('a[href*="/company/"]')
-        name_company = name_company_elem.text.strip() if name_company_elem else None
-        
-        scale_elem = soup.select_one('.company-size') or soup.select_one('.size')
-        scale = scale_elem.text.strip() if scale_elem else None
-        
-        field_elem = soup.select_one('.industry') or soup.select_one('.job-industry')
-        field = field_elem.text.strip() if field_elem else None
-        
-        address_elem = soup.select_one('.address') or soup.select_one('.company-address')
-        address = address_elem.text.strip() if address_elem else None
-        
         return {
             'job_title': job_title,
             'salary': salary,
             'deadline': deadline,
             'place': place,
             'experience': experience,
-            'yeu_cau': yeu_cau,
-            'chuyen_mon': chuyen_mon,
             'name_company': name_company,
-            'scale': scale,
+            'scale': company_size,
             'field': field,
-            'address': address,
-            'link_company': None 
+            'address': address_company,
+            'link_company': link_company 
         }
     except Exception as e:
         logger.error(f"Lỗi khi parse chi tiết công việc: {e}")
@@ -132,6 +150,7 @@ def extract_job_details(soup):
 def crawl_data():
     page = 1
     url_base = 'https://www.vietnamworks.com/viec-lam?q=data&sorting=relevant'
+    total_job=0
     with SB(uc=True, headless=True) as sb:
         while True:
             page_data = []
@@ -139,7 +158,7 @@ def crawl_data():
             url = f"{url_base}&page={page}"
             logger.info(f"=== Đang mở trang danh sách việc làm trang {page} ===")
             sb.get(url)
-            sb.sleep(5)
+            sb.sleep(10)
             html = sb.get_page_source()
             soup = BeautifulSoup(html, 'lxml')
             
@@ -182,17 +201,32 @@ def crawl_data():
             # Đưa dữ liệu lên minIO sau mỗi trang để tránh mất mát nếu có lỗi
             if page_data:
                 logger.info("Đang tạo df cho trang hiện tại")
-                df = spark.createDataFrame(page_data)
+                job_schema = StructType([
+                    StructField("job_title", StringType(), True),
+                    StructField("salary", StringType(), True),
+                    StructField("deadline", StringType(), True),
+                    StructField("place", StringType(), True),
+                    StructField("experience", StringType(), True),
+                    StructField("yeu_cau", StringType(), True),
+                    StructField("chuyen_mon", StringType(), True),
+                    StructField("name_company", StringType(), True),
+                    StructField("scale", StringType(), True),
+                    StructField("field", StringType(), True),
+                    StructField("address", StringType(), True),
+                    StructField("link_company", StringType(), True),
+                    StructField("job_url", StringType(), True)
+                ])
+                df = spark.createDataFrame(page_data, schema=job_schema)
                 table_name = 'my_catalog.bronze.vietnamworks_raw_jobs'
-                logger.info(f"Đang ghi dữ liệu tramg {page} vào bảng Iceberg {table_name}")
+                logger.info(f"Đang ghi dữ liệu trang {page} vào bảng Iceberg {table_name}")
                 df.write \
                     .format('iceberg') \
                     .mode("append") \
                     .saveAsTable(table_name)
-                logger.info("Đã ghi dữ liệu thành công")
+            total_job += len(page_data)
             page += 1
             
-    logger.info(f"Hoàn thành! Đã lấy xong tổng cộng {len(all_jobs_data)} việc làm và lưu vào file vietnamworks_jobs.json")
+    logger.info(f"Hoàn thành! Đã lấy xong tổng cộng {total_job} việc làm và lưu vào file vietnamworks_jobs.json")
 
 if __name__ == "__main__":
     crawl_data()

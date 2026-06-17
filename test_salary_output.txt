@@ -1,6 +1,0 @@
-URL: https://itviec.com/it-jobs/engineering-lead-technical-lead-ai-llm-skylink-labs-4057
-Found .salary text: 'Sign in to view salary'
-URL: https://itviec.com/it-jobs/data-intern-3-months-itviec-0700
-Found .salary text: 'Sign in to view salary'
-URL: https://itviec.com/it-jobs/python-developer-intern-sql-aws-bosch-global-software-technologies-company-limited-5851
-Found .salary text: 'Sign in to view salary'

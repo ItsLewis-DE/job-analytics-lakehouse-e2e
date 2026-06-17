@@ -5,6 +5,7 @@ import time
 import json
 import os
 from pathlib import Path
+from pyspark.sql.types import StructType, StructField, StringType, ArrayType
 from dotenv import load_dotenv
 from pyspark.sql import SparkSession
 import boto3
@@ -185,7 +186,26 @@ def crawl_data():
             #Lưu dữ liệu sau mỗi trang để tránh mất mát nếu có lỗi
             if page_data:
                 logger.info(f"Đang tạo Data Frame cho {page}")
-                df = spark.createDataFrame(page_data)
+                job_schema = StructType([
+                    StructField("job_title", StringType(), True),
+                    StructField("salary", StringType(), True),
+                    StructField("deadline", StringType(), True),
+                    StructField("place", StringType(), True),
+                    StructField("experience", StringType(), True),
+                    StructField("level", StringType(), True),
+                    StructField("education", StringType(), True),
+                    StructField("working_type", StringType(), True),
+                    StructField("working_day", StringType(), True),
+                    StructField("working_hour", StringType(), True),
+                    StructField("skills", ArrayType(StringType()), True),
+                    StructField("name_company", StringType(), True),
+                    StructField("scale", StringType(), True),
+                    StructField("field", StringType(), True),
+                    StructField("address", StringType(), True),
+                    StructField("link_company", StringType(), True),
+                    StructField("job_url", StringType(), True)
+                ])
+                df = spark.createDataFrame(page_data, schema=job_schema)
                 table_name ="my_catalog.bronze.top_cv_raw_jobs"
                 logger.info(f"Đang ghi dữ liệu trang {page} cho {table_name}")
                 df.write \
