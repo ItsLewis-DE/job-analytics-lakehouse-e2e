@@ -85,7 +85,7 @@ class TopdevCrawler(BaseCrawler):
                 'company_name':company_name,
                 'company_size':company_size,
                 'company_industry':company_industry,
-                'comnpany_country':company_country,
+                'company_country':company_country,
                 'company_link':company_link,
                 'inserted_at': dt.now().strftime('%Y-%m-%d %H:%M:%S')
             }
