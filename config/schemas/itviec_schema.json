@@ -1,0 +1,107 @@
+{
+    "type": "struct",
+    "fields": [
+        {
+            "name": "job_title",
+            "type": "string",
+            "nullable": true,
+            "metadata": {}
+        },
+        {
+            "name": "place",
+            "type": "string",
+            "nullable": true,
+            "metadata": {}
+        },
+        {
+            "name": "is_accepted_intern",
+            "type": "string",
+            "nullable": true,
+            "metadata": {}
+        },
+        {
+            "name": "working_type",
+            "type": "string",
+            "nullable": true,
+            "metadata": {}
+        },
+        {
+            "name": "skills",
+            "type": {
+                "type": "array",
+                "elementType": "string",
+                "containsNull": true
+            },
+            "nullable": true,
+            "metadata": {}
+        },
+        {
+            "name": "company_name",
+            "type": "string",
+            "nullable": true,
+            "metadata": {}
+        },
+        {
+            "name": "company_industry",
+            "type": "string",
+            "nullable": true,
+            "metadata": {}
+        },
+        {
+            "name": "company_size",
+            "type": "string",
+            "nullable": true,
+            "metadata": {}
+        },
+        {
+            "name": "company_place",
+            "type": "string",
+            "nullable": true,
+            "metadata": {}
+        },
+        {
+            "name": "company_link",
+            "type": "string",
+            "nullable": true,
+            "metadata": {}
+        },
+        {
+            "name": "working_days",
+            "type": "string",
+            "nullable": true,
+            "metadata": {}
+        },
+        {
+            "name": "demands",
+            "type": {
+                "type": "array",
+                "elementType": "string",
+                "containsNull": true
+            },
+            "nullable": true,
+            "metadata": {}
+        },
+        {
+            "name": "benefits",
+            "type": {
+                "type": "array",
+                "elementType": "string",
+                "containsNull": true
+            },
+            "nullable": true,
+            "metadata": {}
+        },
+        {
+            "name": "inserted_at",
+            "type": "string",
+            "nullable": true,
+            "metadata": {}
+        },
+        {
+            "name": "job_url",
+            "type": "string",
+            "nullable": true,
+            "metadata": {}
+        }
+    ]
+}
