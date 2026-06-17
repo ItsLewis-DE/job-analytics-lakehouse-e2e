@@ -1,0 +1,36 @@
+ #Chọn hệ điều hành và image base
+FROM python:3.12-slim
+
+#Tránh việc python sinh ra các file pyc 
+ENV PYTHONDONTWRITEBYTECODE=1
+# Băt nó in log ra theo thời gian thực
+ENV PYTHONUNBUFFERED=1 
+
+# Cài đặt các system packages cần thiết, dùng apt-get vì nó giúp cho máy chạy tốt hơn
+RUN apt-get update && apt-get install -y \
+    chromium \
+    chromium-driver \
+    xvfb \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Cài đặt uv
+RUN pip install --no-cache-dir uv
+
+WORKDIR /app
+
+# Thêm các thư viện cần thiết vào dockerfile
+COPY pyproject.toml uv.lock ./
+
+# Cài đặt dependencies hệ thống (system-wide) không dùng virtualenv trong container
+RUN uv pip install --system -r pyproject.toml
+
+# Copy thư mục source code vào container
+COPY src/ ./src/
+COPY data/ ./data/
+
+# Thiết lập PYTHONPATH để python có thể tìm thấy module src
+ENV PYTHONPATH=/app
+
+# Mặc định sẽ ghi đè CMD trong DAG
+CMD ["python", "src/extract/topcv.py"]

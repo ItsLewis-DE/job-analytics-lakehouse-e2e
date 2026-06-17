@@ -27,7 +27,7 @@ echo "=========================="
 echo "Đang khởi tạo bucket"
 echo "=========================="
 
-BUCKET_LIST=("sandbox" "bronze" "silver" "gold")
+BUCKET_LIST=("sandbox" "bronze" "silver" "gold" "landing")
 for BUCKET in "${BUCKET_LIST[@]}"; do
     BUCKET_PATH="minio/$BUCKET"
     if ! mc stat "$BUCKET_PATH" > /dev/null 2>&1; then

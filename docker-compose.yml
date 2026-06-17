@@ -103,7 +103,7 @@ services:
 
   # Airflow Init
   airflow-init:
-    image: apache/airflow:2.8.1
+    image: apache/airflow:3.2.2-python3.12
     container_name: airflow-init
     depends_on:
       - postgres-airflow
@@ -116,11 +116,12 @@ services:
       - _AIRFLOW_WWW_USER_PASSWORD=admin
     command: version
 
-  # Airflow Webserver
+  # Airflow API Server (formerly Webserver)
   airflow-webserver:
-    image: apache/airflow:2.8.1
+    image: apache/airflow:3.2.2-python3.12
     container_name: airflow-webserver
     restart: always
+    user: root
     depends_on:
       airflow-init:
         condition: service_completed_successfully
@@ -133,13 +134,15 @@ services:
     volumes:
       - ./dags:/opt/airflow/dags
       - ./plugins:/opt/airflow/plugins
-    command: webserver
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: api-server
 
-  # Airflow Scheduler
-  airflow-scheduler:
-    image: apache/airflow:2.8.1
-    container_name: airflow-scheduler
+  # Airflow DAG Processor (Required in Airflow 3)
+  airflow-dag-processor:
+    image: apache/airflow:3.2.2-python3.12
+    container_name: airflow-dag-processor
     restart: always
+    user: root
     depends_on:
       airflow-init:
         condition: service_completed_successfully
@@ -150,6 +153,26 @@ services:
     volumes:
       - ./dags:/opt/airflow/dags
       - ./plugins:/opt/airflow/plugins
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: dag-processor
+
+  # Airflow Scheduler
+  airflow-scheduler:
+    image: apache/airflow:3.2.2-python3.12
+    container_name: airflow-scheduler
+    restart: always
+    user: root
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+    environment:
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow_password@postgres-airflow:5432/airflow
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__LOAD_EXAMPLES=false
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./plugins:/opt/airflow/plugins
+      - /var/run/docker.sock:/var/run/docker.sock
     command: scheduler
 
   # Superset Init
