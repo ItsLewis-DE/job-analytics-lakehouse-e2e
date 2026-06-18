@@ -1,2 +1,0 @@
-{"timestamp":"2026-06-17T11:43:44.034847Z","level":"info","event":"::group::Pre Execute","logger":"task","filename":"task_runner.py","lineno":1926}
-{"timestamp":"2026-06-17T11:43:55.917066Z","level":"error","event":"Process terminated by signal. For more information, see https://airflow.apache.org/docs/apache-airflow/stable/troubleshooting.html#process-terminated-by-signal.","signal":-15,"signal_name":"SIGTERM","logger":"task"}
