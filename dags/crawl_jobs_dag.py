@@ -16,6 +16,7 @@ SOURCES = ['topcv', 'topdev', 'itviec', 'vietnamworks']
 
 CRAWLER_IMAGE = 'job-crawler:latest'
 SPARK_IMAGE = 'job-spark:latest'
+STANDARD_IMAGE = 'job-standard:latest'
 
 # Network chung để các container có thể giao tiếp với MinIO, Spark, Hive
 NETWORK_MODE = 'job-analyst-project_default'
@@ -29,7 +30,6 @@ with DAG(
     catchup=False,
     tags=['crawler', 'ingest', 'bronze', 'job-analyst', 'docker'],
 ) as dag:
-
     crawl_tasks = {}
     for source in SOURCES:
         crawl_tasks[source] = DockerOperator(
@@ -60,7 +60,7 @@ with DAG(
     for source in SOURCES:
         standard_tasks[source] = DockerOperator(
             task_id=f'standardize_{source}_to_silver',
-            image=SPARK_IMAGE,
+            image=STANDARD_IMAGE,
             command=f'python src/transform/transform_bronze_to_silver.py --source {source} --date {{{{ ds }}}}',
             api_version='auto',
             auto_remove='force',

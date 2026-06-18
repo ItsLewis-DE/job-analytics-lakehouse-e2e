@@ -1,7 +1,10 @@
+import json
+
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
 from datetime import datetime
 from src.utils.spark_util import get_spark_session
+import logging
 from src.transform.standardizers import (
     extract_salary,
     parse_deadline,
@@ -30,7 +33,7 @@ ITVIEC_COLUMN_MAPPING = {
     "company_name": "company_name",
     "company_industry": "industry",
     "company_size": "scale",
-    "company_place": "company_country",
+    "company_place": "company_address",
     "company_link": "company_link",
 }
 
@@ -38,7 +41,7 @@ TOPDEV_COLUMN_MAPPING = {
     "company_name": "company_name",
     "company_industry": "industry",
     "company_size": "scale",
-    "company_country": "company_country",
+    "company_country": "company_address",
     "company_link": "company_link",
 }
 
@@ -71,7 +74,6 @@ class JobStandardizer:
             handler.setFormatter(formatter)
             self.logger.addHandler(handler)
             self.logger.setLevel(logging.INFO)
-        self.bronze_path = "s3a://bronze/{source_name}"
         self.date = date
         self.spark = get_spark_session(f"standardize_{source_name}_to_silver")
         self.start_time = date.strftime("%Y-%m-%d 00:00:00")
@@ -118,7 +120,6 @@ class JobStandardizer:
             "company_name",
             "company_link",
             "company_address",
-            "company_country",
             "industry",
             "location",              # Đã chuẩn hóa từ place
             "company_size_std",      # Đã chuẩn hóa từ scale
@@ -132,17 +133,25 @@ class JobStandardizer:
             "salary_raw",            # Giữ lại cột text của salary để tiện debug
             "salary_min",
             "salary_max",
+            "salary_currency",       # Đơn vị tiền tệ (VND/USD)
             "deadline_date",         # Đã chuẩn hóa từ deadline
-            "inserted_at"            # Ngày crawler quét được
+            "inserted_at",           # Ngày crawler quét được
+            "ingested_at"            # Timestamp ingest vào Bronze (dùng làm partition key)
         ]
-        
+
         # Chỉ select những cột có tồn tại trong df hiện tại
         existing_cols = [c for c in final_columns if c in df.columns]
         df = df.select(*existing_cols)
 
+        # Bước 4: Loại bỏ records thiếu thông tin bắt buộc
+        required_cols = ["job_url", "job_title", "company_name", "source"]
+        for col_name in required_cols:
+            if col_name in df.columns:
+                df = df.filter(F.col(col_name).isNotNull() & (F.trim(F.col(col_name)) != ""))
+
         return df
-    def upload_to_silver(self,df: DataFrame):
-        if df.count() >0:
+    def upload_to_silver(self, df: DataFrame):
+        if df.head(1):
             # Xóa trùng lặp trước khi ghi để tránh lỗi Iceberg Merge "Multiple updates for a single row"
             df = df.dropDuplicates(["job_id"])
             
@@ -153,12 +162,42 @@ class JobStandardizer:
             if self.spark.catalog.tableExists(table_name):
                 # UPSERT (MERGE INTO) khi bảng đã tồn tại
                 df.createOrReplaceTempView("updates_temp")
-                
+                country_update_str = ""
                 merge_query = f"""
                 MERGE INTO {table_name} target
                 USING updates_temp source
                 ON target.job_id = source.job_id
-                WHEN MATCHED THEN UPDATE SET *
+                WHEN MATCHED AND (
+                    NOT (target.job_title <=> source.job_title) OR
+                    NOT (target.company_name <=> source.company_name) OR
+                    NOT (target.location <=> source.location) OR
+                    NOT (target.salary_raw <=> source.salary_raw) OR
+                    NOT (target.deadline_date <=> source.deadline_date) OR
+                    NOT (target.experience_req <=> source.experience_req) OR
+                    NOT (target.level_processed <=> source.level_processed) OR
+                    NOT (target.working_type_std <=> source.working_type_std)
+                ) THEN UPDATE SET 
+                    target.job_title = COALESCE(source.job_title, target.job_title),
+                    target.company_id = COALESCE(source.company_id, target.company_id),
+                    target.company_name = COALESCE(source.company_name, target.company_name),
+                    target.company_link = COALESCE(source.company_link, target.company_link),
+                    target.company_address = COALESCE(source.company_address, target.company_address),
+                    target.industry = COALESCE(source.industry, target.industry),
+                    target.location = COALESCE(source.location, target.location),
+                    target.company_size_std = COALESCE(source.company_size_std, target.company_size_std),
+                    target.experience_req = COALESCE(source.experience_req, target.experience_req),
+                    target.level_processed = COALESCE(source.level_processed, target.level_processed),
+                    target.education = COALESCE(source.education, target.education),
+                    target.working_type_std = COALESCE(source.working_type_std, target.working_type_std),
+                    target.working_day = COALESCE(source.working_day, target.working_day),
+                    target.working_hour = COALESCE(source.working_hour, target.working_hour),
+                    target.skills_array = COALESCE(source.skills_array, target.skills_array),
+                    target.salary_raw = COALESCE(source.salary_raw, target.salary_raw),
+                    target.salary_min = COALESCE(source.salary_min, target.salary_min),
+                    target.salary_max = COALESCE(source.salary_max, target.salary_max),
+                    target.salary_currency = COALESCE(source.salary_currency, target.salary_currency),
+                    target.deadline_date = COALESCE(source.deadline_date, target.deadline_date),
+                    target.inserted_at = COALESCE(source.inserted_at, target.inserted_at)
                 WHEN NOT MATCHED THEN INSERT *
                 """
                 self.spark.sql(merge_query)
@@ -166,12 +205,30 @@ class JobStandardizer:
                 # Lần chạy đầu tiên: Tạo bảng Iceberg v2 với tính năng Hidden Partitioning theo ngày
                 df.writeTo(table_name) \
                     .tableProperty("format-version", "2") \
-                    .partitionedBy("days(ingested_at)") \
+                    .partitionedBy(F.days("ingested_at")) \
                     .create()
                     
             self.logger.info("Ghi thành công")
         else:
             self.logger.warning("Không có dữ liệu hợp lệ!")
+    def compute_quality_metrics(self, df_bronze: DataFrame, df_silver: DataFrame) -> dict:
+        """
+        Tính toán và log các chỉ số chất lượng dữ liệu sau mỗi batch transform.
+        """
+        bronze_count = df_bronze.count()
+        silver_count = df_silver.count()
+
+        metrics = {
+            "source": self.source_name,
+            "run_date": self.date.strftime("%Y-%m-%d"),
+            "bronze_count": bronze_count,
+            "silver_count": silver_count,
+            "dropped_count": bronze_count - silver_count,
+            "drop_rate": round(1 - (silver_count / max(bronze_count, 1)), 4),
+        }
+        self.logger.info(f"Quality Metrics:\n{json.dumps(metrics, indent=2, ensure_ascii=False)}")
+        return metrics
+
     def run(self):
         self.logger.info("=" * 60)
         self.logger.info(
@@ -179,9 +236,15 @@ class JobStandardizer:
         )
         self.logger.info("=" * 60)
         try:
-            df = self.read_bronze()
-            df_proccessed = self.transform(df)
-            self.upload_to_silver(df_proccessed)
+            df_bronze = self.read_bronze()
+            df_silver = self.transform(df_bronze)
+            self.compute_quality_metrics(df_bronze, df_silver)
+            self.upload_to_silver(df_silver)
+
         except Exception as e:
-            self.logger.error(f"There is an error while Transform Data to silver: {e}")
-            
+            self.logger.error(f"There is an error while Transform Data to silver: {e}", exc_info=True)
+            raise
+        finally:
+            self.spark.stop()
+        self.logger.info("="*60)
+        self.logger.info("THANH CONG ROI !!!!!!!!!!!!!!!!!!!!!!!!!!!!!")

@@ -6,7 +6,7 @@ from datetime import datetime
 from pathlib import Path
 
 from pyspark.sql.types import StructType
-from pyspark.sql.functions import current_timestamp, input_file_name, lit, col
+from pyspark.sql.functions import current_timestamp, input_file_name, lit, col, days
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
@@ -82,8 +82,9 @@ class BaseIngestor:
             .option("multiLine", "true") \
             .option("columnNameOfCorruptRecord", "_corrupt_record") \
             .json(self.landing_path)
-
-        total_count = df.count()
+        
+        df.cache() 
+        total_count = df.rdd.count()
         self.logger.info(f"Tổng số bản ghi đọc được: {total_count}")
 
         # Tách dữ liệu lỗi ra khỏi dữ liệu hợp lệ
@@ -121,7 +122,7 @@ class BaseIngestor:
             else:
                 # Lần chạy đầu tiên: Tạo bảng Iceberg với tính năng Hidden Partitioning theo ngày
                 valid_df.writeTo(table_name) \
-                    .partitionedBy("days(ingested_at)") \
+                    .partitionedBy(days("ingested_at")) \
                     .create()
                     
             self.logger.info(f"Ghi thành công vào bảng Iceberg {table_name}!")

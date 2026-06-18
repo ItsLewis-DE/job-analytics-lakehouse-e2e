@@ -88,7 +88,8 @@ def extract_salary(df: DataFrame, salary_col: str = "salary") -> DataFrame:
     if salary_col not in df.columns:
         return df.withColumn("salary_raw", F.lit(None).cast(T.StringType())) \
                  .withColumn("salary_min", F.lit(None).cast(T.DoubleType())) \
-                 .withColumn("salary_max", F.lit(None).cast(T.DoubleType()))
+                 .withColumn("salary_max", F.lit(None).cast(T.DoubleType())) \
+                 .withColumn("salary_currency", F.lit(None).cast(T.StringType()))
 
     df = df.withColumn("salary_raw", F.col(salary_col))
 
@@ -135,6 +136,16 @@ def extract_salary(df: DataFrame, salary_col: str = "salary") -> DataFrame:
          .when(second_num.isNotNull(), second_num)
          .when(has_prefix_to, first_num)
          .otherwise(F.lit(None).cast(T.DoubleType()))
+    )
+
+    # Detect đơn vị tiền tệ
+    is_usd = cleaned.contains("usd") | cleaned.contains("$")
+
+    df = df.withColumn(
+        "salary_currency",
+        F.when(is_negotiable, F.lit(None).cast(T.StringType()))
+         .when(is_usd, F.lit("USD"))
+         .otherwise(F.lit("VND"))  # Default cho thị trường VN
     )
 
     return df

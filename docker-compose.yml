@@ -35,7 +35,6 @@ services:
       - postgres
       - minio
     environment:
-      SKIP_SCHEMA_INIT: 'true'
       IS_RESUME: 'true'
       SERVICE_NAME: 'metastore'
       DB_DRIVER: 'postgres'
