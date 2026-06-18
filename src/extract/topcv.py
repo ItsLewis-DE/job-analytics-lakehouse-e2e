@@ -124,10 +124,16 @@ class TopcvCrawler(BaseCrawler):
                     sb.sleep(3)
                     
                     # Kiểm tra xem có bị dính Cloudflare không
-                    if sb.is_text_visible("Just a moment", "title") or sb.is_element_visible("#challenge-error-text"):
+                    page_title = sb.get_title()
+                    if "Just a moment" in page_title or "Cloudflare" in page_title or sb.is_element_visible("#challenge-error-text"):
                         self.logger.warning(f"Bị Cloudflare chặn ở URL: {job_url}. Đang thử bypass...")
                         sb.uc_gui_click_captcha()
-                        sb.sleep(3)
+                        sb.sleep(4)
+                        
+                        if "Just a moment" in sb.get_title() or "Cloudflare" in sb.get_title():
+                            self.logger.warning("Vẫn bị chặn, click thử lại...")
+                            sb.uc_gui_click_captcha()
+                            sb.sleep(4)
                         
                     html_job = sb.get_page_source()
                     job_soup = BeautifulSoup(html_job, 'lxml')

@@ -316,23 +316,6 @@ wheels = [
 ]
 
 [[package]]
-name = "dotenv"
-version = "0.9.9"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "python-dotenv" },
-]
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/b2/b7/545d2c10c1fc15e48653c91efde329a790f2eecfbbf2bd16003b5db2bab0/dotenv-0.9.9-py2.py3-none-any.whl", hash = "sha256:29cf74a087b31dafdb5a446b6d7e11cbce8ed2741540e2339c69fbef92c94ce9", size = 1892, upload-time = "2025-02-19T22:15:01.647Z" },
-]
-
-[[package]]
-name = "dotenv-python"
-version = "0.0.1"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/c8/ed/9004fd73042bd1777b236fd55e4fc2b7be3a4c60e16b8528538926f04ecb/dotenv-python-0.0.1.zip", hash = "sha256:362e170ca8fd69a70c1aca1fda2ddad0ac270e161e81e59f4039ec11decc14fa", size = 1824, upload-time = "2017-01-28T15:34:05.675Z" }
-
-[[package]]
 name = "exceptiongroup"
 version = "1.3.1"
 source = { registry = "https://pypi.org/simple" }
@@ -427,11 +410,10 @@ dependencies = [
     { name = "boto3" },
     { name = "bs4" },
     { name = "curl-cffi" },
-    { name = "dotenv" },
-    { name = "dotenv-python" },
     { name = "lxml" },
     { name = "minio" },
     { name = "pyspark" },
+    { name = "python-dotenv" },
     { name = "requests" },
     { name = "seleniumbase" },
 ]
@@ -441,11 +423,10 @@ requires-dist = [
     { name = "boto3", specifier = ">=1.43.29" },
     { name = "bs4", specifier = ">=0.0.2" },
     { name = "curl-cffi", specifier = ">=0.15.0" },
-    { name = "dotenv", specifier = ">=0.9.9" },
-    { name = "dotenv-python", specifier = ">=0.0.1" },
     { name = "lxml", specifier = ">=6.1.1" },
     { name = "minio", specifier = ">=7.2.20" },
     { name = "pyspark", specifier = "==3.4.2" },
+    { name = "python-dotenv", specifier = ">=1.0.1" },
     { name = "requests", specifier = ">=2.34.2" },
     { name = "seleniumbase", specifier = ">=4.49.12" },
 ]

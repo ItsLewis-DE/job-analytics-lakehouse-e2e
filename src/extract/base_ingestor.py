@@ -68,7 +68,6 @@ class BaseIngestor:
             f"s3a://landing/year={self.year}/month={self.month}"
             f"/day={self.day}/{source_name}_jobs.json"
         )
-        self.bronze_path = f"s3a://bronze/{source_name}_jobs/"
         self.quarantine_path = (
             f"s3a://bronze/_quarantine/{source_name}_jobs/"
             f"year={self.year}/month={self.month}/day={self.day}/"
@@ -106,19 +105,26 @@ class BaseIngestor:
     def add_audit_columns(self, df):
         df_audited = df \
             .withColumn("ingested_at", current_timestamp()) \
-            .withColumn("source_file", input_file_name()) 
+            .withColumn("_source_name", lit(self.source_name)) 
 
         return df_audited
 
     def write_bronze(self, valid_df, error_df):
-        # --- Ghi dữ liệu hợp lệ ---
+        # --- Ghi dữ liệu hợp lệ vào Iceberg Table ---
         if valid_df.count() > 0:
-            self.logger.info(f"Đang ghi dữ liệu hợp lệ xuống Bronze: {self.bronze_path}")
-            valid_df.write \
-                .mode("append") \
-                .partitionBy("_source_name") \
-                .parquet(self.bronze_path)
-            self.logger.info("Ghi Bronze thành công!")
+            table_name = f"my_catalog.bronze.{self.source_name}_jobs"
+            self.logger.info(f"Đang ghi dữ liệu hợp lệ xuống Iceberg table: {table_name}")
+            
+            # Kiểm tra xem bảng đã tồn tại trong catalog chưa
+            if self.spark.catalog.tableExists(table_name):
+                valid_df.writeTo(table_name).append()
+            else:
+                # Lần chạy đầu tiên: Tạo bảng Iceberg với tính năng Hidden Partitioning theo ngày
+                valid_df.writeTo(table_name) \
+                    .partitionedBy("days(ingested_at)") \
+                    .create()
+                    
+            self.logger.info(f"Ghi thành công vào bảng Iceberg {table_name}!")
         else:
             self.logger.warning("Không có dữ liệu hợp lệ để ghi xuống Bronze.")
 

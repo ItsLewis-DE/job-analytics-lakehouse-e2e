@@ -110,6 +110,11 @@ services:
     environment:
       - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow_password@postgres-airflow:5432/airflow
       - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__INTERNAL_API_URL=http://airflow-webserver:8080
+      - AIRFLOW__CORE__EXECUTION_API_SERVER_URL=http://airflow-webserver:8080/execution
+      - AIRFLOW__API__SECRET_KEY=this_is_a_very_long_secret_key_for_airflow_api_auth_123456789012345678901234567890
+      - AIRFLOW__API_AUTH__JWT_SECRET=this_is_a_very_long_secret_key_for_airflow_api_auth_123456789012345678901234567890
+      - AIRFLOW__WEBSERVER__SECRET_KEY=this_is_a_very_long_secret_key_for_airflow_api_auth_123456789012345678901234567890
       - _AIRFLOW_DB_UPGRADE=true
       - _AIRFLOW_WWW_USER_CREATE=true
       - _AIRFLOW_WWW_USER_USERNAME=admin
@@ -131,11 +136,17 @@ services:
       - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow_password@postgres-airflow:5432/airflow
       - AIRFLOW__CORE__EXECUTOR=LocalExecutor
       - AIRFLOW__CORE__LOAD_EXAMPLES=false
+      - AIRFLOW__CORE__INTERNAL_API_URL=http://airflow-webserver:8080
+      - AIRFLOW__CORE__EXECUTION_API_SERVER_URL=http://airflow-webserver:8080/execution
+      - AIRFLOW__API__SECRET_KEY=this_is_a_very_long_secret_key_for_airflow_api_auth_123456789012345678901234567890
+      - AIRFLOW__API_AUTH__JWT_SECRET=this_is_a_very_long_secret_key_for_airflow_api_auth_123456789012345678901234567890
+      - AIRFLOW__WEBSERVER__SECRET_KEY=this_is_a_very_long_secret_key_for_airflow_api_auth_123456789012345678901234567890
     volumes:
       - ./dags:/opt/airflow/dags
       - ./plugins:/opt/airflow/plugins
       - /var/run/docker.sock:/var/run/docker.sock
       - ./airflow_passwords.json:/opt/airflow/simple_auth_manager_passwords.json.generated
+      - ./logs:/opt/airflow/logs
     command: api-server
 
   # Airflow DAG Processor (Required in Airflow 3)
@@ -151,10 +162,16 @@ services:
       - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow_password@postgres-airflow:5432/airflow
       - AIRFLOW__CORE__EXECUTOR=LocalExecutor
       - AIRFLOW__CORE__LOAD_EXAMPLES=false
+      - AIRFLOW__CORE__INTERNAL_API_URL=http://airflow-webserver:8080
+      - AIRFLOW__CORE__EXECUTION_API_SERVER_URL=http://airflow-webserver:8080/execution
+      - AIRFLOW__API__SECRET_KEY=this_is_a_very_long_secret_key_for_airflow_api_auth_123456789012345678901234567890
+      - AIRFLOW__API_AUTH__JWT_SECRET=this_is_a_very_long_secret_key_for_airflow_api_auth_123456789012345678901234567890
+      - AIRFLOW__WEBSERVER__SECRET_KEY=this_is_a_very_long_secret_key_for_airflow_api_auth_123456789012345678901234567890
     volumes:
       - ./dags:/opt/airflow/dags
       - ./plugins:/opt/airflow/plugins
       - /var/run/docker.sock:/var/run/docker.sock
+      - ./logs:/opt/airflow/logs
     command: dag-processor
 
   # Airflow Scheduler
@@ -170,10 +187,16 @@ services:
       - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow_password@postgres-airflow:5432/airflow
       - AIRFLOW__CORE__EXECUTOR=LocalExecutor
       - AIRFLOW__CORE__LOAD_EXAMPLES=false
+      - AIRFLOW__CORE__INTERNAL_API_URL=http://airflow-webserver:8080
+      - AIRFLOW__CORE__EXECUTION_API_SERVER_URL=http://airflow-webserver:8080/execution
+      - AIRFLOW__API__SECRET_KEY=this_is_a_very_long_secret_key_for_airflow_api_auth_123456789012345678901234567890
+      - AIRFLOW__API_AUTH__JWT_SECRET=this_is_a_very_long_secret_key_for_airflow_api_auth_123456789012345678901234567890
+      - AIRFLOW__WEBSERVER__SECRET_KEY=this_is_a_very_long_secret_key_for_airflow_api_auth_123456789012345678901234567890
     volumes:
       - ./dags:/opt/airflow/dags
       - ./plugins:/opt/airflow/plugins
       - /var/run/docker.sock:/var/run/docker.sock
+      - ./logs:/opt/airflow/logs
     command: scheduler
 
   # Superset Init

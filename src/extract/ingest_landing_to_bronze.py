@@ -2,7 +2,7 @@ import sys
 import argparse
 from datetime import datetime
 from pathlib import Path
-from src.transform.base_ingestor import BaseIngestor
+from src.extract.base_ingestor import BaseIngestor
 
 
 def main():
