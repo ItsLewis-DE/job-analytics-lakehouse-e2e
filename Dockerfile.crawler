@@ -12,6 +12,8 @@ RUN apt-get update && apt-get install -y \
     chromium-driver \
     xvfb \
     curl \
+    python3-tk \
+    python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Cài đặt uv

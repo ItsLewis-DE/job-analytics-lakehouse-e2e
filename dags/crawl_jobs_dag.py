@@ -40,6 +40,7 @@ with DAG(
             auto_remove='force',
             docker_url='unix://var/run/docker.sock',
             network_mode=NETWORK_MODE,
+            mount_tmp_dir=False,
         )
 
     ingest_tasks = {}
@@ -48,19 +49,26 @@ with DAG(
         ingest_tasks[source] = DockerOperator(
             task_id=f'ingest_{source}_to_bronze',
             image=SPARK_IMAGE,
-            command=f'python src/transform/ingest_landing_to_bronze.py --source {source} --date {{{{ ds }}}}',
+            command=f'python src/extract/ingest_landing_to_bronze.py --source {source} --date {{{{ ds }}}}',
             api_version='auto',
             auto_remove='force',
             docker_url='unix://var/run/docker.sock',
             network_mode=NETWORK_MODE,
+            mount_tmp_dir=False,
+        )
+    standard_tasks = {}
+    for source in SOURCES:
+        standard_tasks[source] = DockerOperator(
+            task_id=f'standardize_{source}_to_silver',
+            image=SPARK_IMAGE,
+            command=f'python src/transform/transform_bronze_to_silver.py --source {source} --date {{{{ ds }}}}',
+            api_version='auto',
+            auto_remove='force',
+            docker_url='unix://var/run/docker.sock',
+            network_mode=NETWORK_MODE,
+            mount_tmp_dir=False,
         )
 
-    # ================================================================
-    # DEPENDENCIES: Crawl xong nguồn nào thì Ingest nguồn đó ngay
-    # ================================================================
-    #   crawl_topcv  ──→  ingest_topcv_to_bronze
-    #   crawl_topdev ──→  ingest_topdev_to_bronze
-    #   crawl_itviec ──→  ingest_itviec_to_bronze
-    #   crawl_vietnamworks ──→ ingest_vietnamworks_to_bronze
+    # Nối các task lại với nhau: Crawl -> Ingest (Bronze) -> Standardize (Silver)
     for source in SOURCES:
-        crawl_tasks[source] >> ingest_tasks[source]
+        crawl_tasks[source] >> ingest_tasks[source] >> standard_tasks[source]

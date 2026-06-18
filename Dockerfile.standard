@@ -1,0 +1,20 @@
+FROM apache/spark:3.4.2
+
+USER root
+
+RUN ln -sf $(which python3) /usr/bin/python 
+
+RUN pip install --no-cache-dir pyspark==3.4.2
+
+WORKDIR /app
+
+COPY src/ ./src/
+COPY config/ ./config/
+COPY spark-defaults.conf /opt/spark/conf/spark-defaults.conf
+
+ENV PYTHONPATH=/app
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+# Mặc định sẽ ghi đè CMD trong DAG
+CMD ["python", "src/transform/transform_bronze_to_silver.py", "--source", "all"]

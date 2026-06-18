@@ -3,11 +3,8 @@ import json
 import os
 from datetime import datetime as dt
 from pathlib import Path
-from dotenv import load_dotenv
 import boto3
 from seleniumbase import SB
-
-load_dotenv()
 
 WORKING_DIR = Path(__file__).resolve().parents[2]
 DATA_DIR = WORKING_DIR / 'data'
@@ -84,6 +81,8 @@ class BaseCrawler:
         raise NotImplementedError("Subclasses must implement the crawling logic")
 
     def run(self):
-        with SB(uc=True, headless=True) as sb:
+        # Dùng xvfb thay vì headless để qua mặt Cloudflare tốt hơn trong Docker
+        use_xvfb = getattr(self, 'is_docker', os.path.exists('/.dockerenv'))
+        with SB(uc=True, headless=False, xvfb=use_xvfb) as sb:
             self.do_crawl(sb)
         self.upload_to_minio()
