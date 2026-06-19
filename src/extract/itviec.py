@@ -128,6 +128,7 @@ class ItviecCrawler(BaseCrawler):
         self.logger.info(f"Tìm thấy {len(job_urls)} công việc trên trang")
         
         job_total = 0
+        consecutive_errors = 0
         all_jobs_data = []
         for job_url in job_urls:
             if cloudflare_fail_count > 10:
@@ -140,11 +141,16 @@ class ItviecCrawler(BaseCrawler):
             job_total += 1
             self.logger.info(f"Đang lấy chi tiết: {job_url}")
             try:
-                if hasattr(sb, 'uc_open_with_reconnect'):
-                    sb.uc_open_with_reconnect(job_url, 4)
-                else:
+                if hasattr(sb, 'driver') and sb.driver:
+                    sb.driver.set_page_load_timeout(30)
+                try:
+                    if hasattr(sb, 'uc_open_with_reconnect'):
+                        sb.uc_open_with_reconnect(job_url, 4)
+                    else:
+                        sb.get(job_url)
+                except Exception:
                     sb.get(job_url)
-                sb.sleep(3)
+                sb.sleep(2)
                 
                 page_title = sb.get_title()
                 if "Just a moment" in page_title or "Cloudflare" in page_title or sb.is_element_visible("#challenge-error-text"):
@@ -169,11 +175,13 @@ class ItviecCrawler(BaseCrawler):
                     job_data['job_url'] = job_url
                     all_jobs_data.append(job_data)
                     self.logger.info(f"-> Đã lấy thành công: {job_data['job_title']}")
+                    consecutive_errors = 0
             
             except Exception as e:
                 self.logger.error(f"Lỗi khi truy cập {job_url}: {e}")
-                if "Connection refused" in str(e) or "Max retries exceeded" in str(e) or "not connected to DevTools" in str(e):
-                    self.logger.error("Trình duyệt đã crash hoặc mất kết nối WebDriver. Dừng task để Airflow retry!")
+                consecutive_errors += 1
+                if consecutive_errors >= 3 or "Connection refused" in str(e) or "Max retries exceeded" in str(e) or "not connected to DevTools" in str(e) or "renderer" in str(e):
+                    self.logger.error("Trình duyệt đã crash hoặc lỗi liên tiếp quá nhiều. Dừng task để Airflow retry!")
                     import sys
                     sys.exit(1)
                 

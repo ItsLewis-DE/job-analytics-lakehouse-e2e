@@ -139,6 +139,7 @@ class VietnamworksCrawler(BaseCrawler):
                 break
                 
             self.logger.info(f"Tìm thấy {len(job_urls)} công việc trên trang {page}")
+            consecutive_errors = 0
             
             #Truy cập vào bài đăng tuyển dụng đó để lấy thêm thông tin chi tiết
             for job_url in job_urls:
@@ -152,9 +153,11 @@ class VietnamworksCrawler(BaseCrawler):
                     
                 self.logger.info(f"Đang lấy chi tiết: {job_url}")
                 try:
-                    if hasattr(sb, 'uc_open_with_reconnect'):
+                    if hasattr(sb, 'driver') and sb.driver:
+                        sb.driver.set_page_load_timeout(30)
+                    try:
                         sb.uc_open_with_reconnect(job_url, 4)
-                    else:
+                    except Exception:
                         sb.get(job_url)
                     sb.sleep(3)
                     
@@ -188,9 +191,11 @@ class VietnamworksCrawler(BaseCrawler):
                         job_data['job_url'] = job_url
                         page_data.append(job_data)
                         self.logger.info(f"-> Đã lấy thành công: {job_data['job_title']}")
+                        consecutive_errors = 0
                 except Exception as e:
                     self.logger.error(f"Lỗi khi truy cập {job_url}: {e}")
-                    if "Connection refused" in str(e) or "Max retries exceeded" in str(e) or "not connected to DevTools" in str(e):
+                    consecutive_errors += 1
+                    if consecutive_errors >= 3 or "Connection refused" in str(e) or "Max retries exceeded" in str(e) or "not connected to DevTools" in str(e) or "renderer" in str(e):
                         self.logger.error("Trình duyệt đã crash hoặc mất kết nối WebDriver. Dừng task để Airflow retry!")
                         import sys
                         sys.exit(1)
