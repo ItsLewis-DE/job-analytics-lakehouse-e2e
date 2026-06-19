@@ -1,5 +1,6 @@
 from airflow import DAG
 from airflow.providers.docker.operators.docker import DockerOperator
+from docker.types import Mount
 from datetime import datetime, timedelta
 
 default_args = {
@@ -12,11 +13,12 @@ default_args = {
 }
 
 
-SOURCES = ['topcv', 'topdev', 'itviec', 'vietnamworks']
+SOURCES = ['topcv', 'itviec', 'vietnamworks']
 
 CRAWLER_IMAGE = 'job-crawler:latest'
 SPARK_IMAGE = 'job-spark:latest'
 STANDARD_IMAGE = 'job-standard:latest'
+GOLD_IMAGE = 'job-gold:latest'
 
 # Network chung để các container có thể giao tiếp với MinIO, Spark, Hive
 NETWORK_MODE = 'job-analyst-project_default'
@@ -41,6 +43,7 @@ with DAG(
             docker_url='unix://var/run/docker.sock',
             network_mode=NETWORK_MODE,
             mount_tmp_dir=False,
+            mounts=[Mount(source='/home/phongthanh/job-analyst-project/data', target='/app/data', type='bind')],
         )
 
     ingest_tasks = {}
@@ -55,6 +58,7 @@ with DAG(
             docker_url='unix://var/run/docker.sock',
             network_mode=NETWORK_MODE,
             mount_tmp_dir=False,
+            mounts=[Mount(source='/home/phongthanh/job-analyst-project/data', target='/app/data', type='bind')],
         )
     standard_tasks = {}
     for source in SOURCES:
@@ -67,8 +71,20 @@ with DAG(
             docker_url='unix://var/run/docker.sock',
             network_mode=NETWORK_MODE,
             mount_tmp_dir=False,
+            mounts=[Mount(source='/home/phongthanh/job-analyst-project/data', target='/app/data', type='bind')],
         )
 
-    # Nối các task lại với nhau: Crawl -> Ingest (Bronze) -> Standardize (Silver)
+    gold_task = DockerOperator(
+        task_id='unify_silver_to_gold',
+        image=GOLD_IMAGE,
+        command='python src/transform/transform_silver_to_gold.py --date {{ ds }}',
+        api_version='auto',
+        auto_remove='force',
+        docker_url='unix://var/run/docker.sock',
+        network_mode=NETWORK_MODE,
+        mount_tmp_dir=False,
+        mounts=[Mount(source='/home/phongthanh/job-analyst-project/data', target='/app/data', type='bind')],
+    )
+
     for source in SOURCES:
-        crawl_tasks[source] >> ingest_tasks[source] >> standard_tasks[source]
+        crawl_tasks[source] >> ingest_tasks[source] >> standard_tasks[source] >>gold_task

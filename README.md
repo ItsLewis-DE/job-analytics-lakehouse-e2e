@@ -11,8 +11,7 @@ Hệ thống cào dữ liệu tự động (Crawl) bằng thư viện `Beautiful
    - *Dữ liệu thu thập:* Tên công ty, địa chỉ, hình thức làm việc (remote/office), mức lương, kỹ năng, chuyên môn, domain công việc, loại hình công ty, quy mô công ty, quốc gia, ngày làm việc, link bài viết.
 2. **TopCV:**
    - *Dữ liệu thu thập:* Lương, địa điểm, kinh nghiệm, hạn nộp, yêu cầu, quyền lợi, chuyên môn, cấp bậc, học vấn, số lượng tuyển, hình thức làm việc, thời gian làm việc, kỹ năng, tên công ty, quy mô, lĩnh vực, địa điểm, link bài viết.
-3. **TopDev:**
-   - *Dữ liệu thu thập:* Tiêu đề, yêu cầu, domain công việc, kỹ năng, phúc lợi, tên công ty, quy mô công ty, địa điểm công ty.
+
 4. **VietnamWorks:**
    - *Dữ liệu thu thập:* Hạn nộp hồ sơ, lương, mức độ gấp, địa điểm, yêu cầu công việc, kinh nghiệm, kỹ năng, tên công ty, địa chỉ công ty, quy mô công ty, link website, phúc lợi, cấp bậc, trình độ học vấn, giờ làm việc, ngày làm việc, loại hình làm việc, độ tuổi, lĩnh vực.
 
