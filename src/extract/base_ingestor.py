@@ -16,7 +16,7 @@ from src.utils.spark_util import get_spark_session
 class BaseIngestor:
 
     # Các nguồn dữ liệu hợp lệ (đảm bảo phải có file schema tương ứng)
-    VALID_SOURCES = ['itviec', 'topcv', 'topdev', 'vietnamworks']
+    VALID_SOURCES = ['itviec', 'topcv', 'vietnamworks']
 
     def __init__(self, source_name: str, date: datetime):
         # --- Validate source ---
@@ -75,16 +75,18 @@ class BaseIngestor:
 
     def read_landing(self):
         self.logger.info(f"Đang đọc dữ liệu từ: {self.landing_path}")
-
-        df = self.spark.read \
-            .schema(self.schema) \
-            .option("mode", "PERMISSIVE") \
-            .option("multiLine", "true") \
-            .option("columnNameOfCorruptRecord", "_corrupt_record") \
-            .json(self.landing_path)
-        
-        df.cache() 
-        total_count = df.rdd.count()
+        try:
+            df = self.spark.read \
+                .schema(self.schema) \
+                .option("mode", "PERMISSIVE") \
+                .option("columnNameOfCorruptRecord", "_corrupt_record") \
+                .json(self.landing_path)
+            
+            df.cache() 
+            total_count = df.rdd.count()
+        except Exception as e:
+            self.logger.error("Co loi xay ra!")
+            raise
         self.logger.info(f"Tổng số bản ghi đọc được: {total_count}")
 
         # Tách dữ liệu lỗi ra khỏi dữ liệu hợp lệ

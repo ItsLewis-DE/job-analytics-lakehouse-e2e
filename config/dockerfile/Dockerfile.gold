@@ -1,0 +1,30 @@
+# Image base: dùng Spark chính thức có sẵn PySpark + Java + Hadoop
+FROM apache/spark:3.4.2
+
+USER root
+
+# Tạo symlink python → python3 (image base chỉ có python3)
+RUN ln -sf $(which python3) /usr/bin/python
+
+# Cài Python packages cần thiết cho script ingest
+RUN pip install --no-cache-dir pyspark==3.4.2
+
+WORKDIR /app
+
+# Copy source code và config
+COPY src/ ./src/
+COPY config/ ./config/
+COPY jars/*.jar /opt/spark/jars/
+
+COPY spark-defaults.conf /opt/spark/conf/spark-defaults.conf
+
+# Tắt tính năng tự động tải thư viện qua mạng (Ivy) của Spark trong Docker vì đã chép trực tiếp file jar
+RUN sed -i 's/spark.jars.packages/#spark.jars.packages/g' /opt/spark/conf/spark-defaults.conf && \
+    echo "spark.jars /opt/spark/jars/com.amazonaws_aws-java-sdk-bundle-1.12.262.jar,/opt/spark/jars/org.apache.hadoop_hadoop-aws-3.3.4.jar,/opt/spark/jars/org.apache.iceberg_iceberg-spark-runtime-3.4_2.12-1.4.1.jar,/opt/spark/jars/org.wildfly.openssl_wildfly-openssl-1.0.7.Final.jar" >> /opt/spark/conf/spark-defaults.conf
+
+ENV PYTHONPATH=/app
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+# Mặc định sẽ ghi đè CMD trong DAG
+CMD ["python", "src/transform/transform_silver_to_gold.py"]

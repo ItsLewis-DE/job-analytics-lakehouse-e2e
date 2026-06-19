@@ -48,18 +48,11 @@ class BaseCrawler:
     def save_to_json(self, data):
         if not data:
             return
-            
-        existing_data = []
-        if os.path.exists(self.local_file):
-            try:
-                with open(self.local_file, 'r', encoding='utf-8') as f:
-                    existing_data = json.load(f)
-            except json.JSONDecodeError:
-                pass
-                
-        existing_data.extend(data)
-        with open(self.local_file, 'w', encoding='utf-8') as f:
-            json.dump(existing_data, f, ensure_ascii=False, indent=4)
+        os.makedirs(os.path.dirname(self.local_file),exist_ok=True)          
+        with open(self.local_file, 'a', encoding='utf-8') as f:
+            for job in data:
+                json_string = json.dumps(job,ensure_ascii=False)
+                f.write(json_string+'\n')
         self.logger.info(f"Đã lưu {len(data)} jobs vào file local {self.local_file}")
 
     def upload_to_minio(self, bucket_name='landing'):
@@ -76,13 +69,16 @@ class BaseCrawler:
             self.logger.info("Upload thành công!")
         except Exception as e:
             self.logger.error(f"Lỗi khi upload lên MinIO: {e}")
+            raise
 
     def do_crawl(self, sb):
         raise NotImplementedError("Subclasses must implement the crawling logic")
 
     def run(self):
-        # Dùng xvfb thay vì headless để qua mặt Cloudflare tốt hơn trong Docker
+        if os.path.exists(self.local_file):
+            os.remove(self.local_file)
+            self.logger.info("Da xoa file cu de trach trung du lieu!")
         use_xvfb = getattr(self, 'is_docker', os.path.exists('/.dockerenv'))
-        with SB(uc=True, headless=False, xvfb=use_xvfb) as sb:
+        with SB(uc=True, headless=False, xvfb=use_xvfb, incognito=True) as sb:
             self.do_crawl(sb)
         self.upload_to_minio()

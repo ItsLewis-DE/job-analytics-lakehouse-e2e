@@ -15,7 +15,10 @@ from src.transform.standardizers import (
     normalize_skills,
     standardize_company_size,
     generate_company_id,
-    generate_job_id
+    generate_job_id,
+    enrich_salary_band,
+    enrich_skills_from_title,
+    standardize_job_category
 )
 
 # =============================================================================
@@ -23,7 +26,7 @@ from src.transform.standardizers import (
 # =============================================================================
 TOPCV_COLUMN_MAPPING = {
     "name_company": "company_name",
-    "field": "industry",
+    "field": "company_industry",
     "scale": "scale",         
     "address": "company_address",
     "link_company": "company_link",
@@ -31,23 +34,16 @@ TOPCV_COLUMN_MAPPING = {
 
 ITVIEC_COLUMN_MAPPING = {
     "company_name": "company_name",
-    "company_industry": "industry",
+    "company_industry": "company_industry",
     "company_size": "scale",
     "company_place": "company_address",
     "company_link": "company_link",
 }
 
-TOPDEV_COLUMN_MAPPING = {
-    "company_name": "company_name",
-    "company_industry": "industry",
-    "company_size": "scale",
-    "company_country": "company_address",
-    "company_link": "company_link",
-}
 
 VIETNAMWORKS_COLUMN_MAPPING = {
     "name_company": "company_name",
-    "field": "industry",
+    "field": "company_industry",
     "scale": "scale",
     "address": "company_address",
     "link_company": "company_link",
@@ -100,12 +96,15 @@ class JobStandardizer:
                 df = df.withColumnRenamed(old_name, new_name)
 
         df = (df.transform(extract_salary, salary_col="salary")
+                .transform(enrich_salary_band)
                 .transform(parse_deadline, deadline_col="deadline", reference_date_col="ingested_at")
                 .transform(standardize_location, place_col="place")
                 .transform(standardize_experience, exp_col="experience")
                 .transform(standardize_level, level_col="level")
                 .transform(standardize_working_type, wt_col="working_type")
                 .transform(normalize_skills, skills_col="skills")
+                .transform(enrich_skills_from_title, title_col="job_title")
+                .transform(standardize_job_category, title_col="job_title")
                 .transform(standardize_company_size, size_col="scale")
                 .transform(generate_company_id, company_name_col="company_name")
                 .transform(generate_job_id, source_col="source", url_col="job_url"))
@@ -116,11 +115,12 @@ class JobStandardizer:
             "source",
             "job_url",
             "job_title",
+            "job_category",
             "company_id",
             "company_name",
             "company_link",
             "company_address",
-            "industry",
+            "company_industry",
             "location",              # Đã chuẩn hóa từ place
             "company_size_std",      # Đã chuẩn hóa từ scale
             "experience_req",        # Đã chuẩn hóa từ experience
@@ -134,6 +134,7 @@ class JobStandardizer:
             "salary_min",
             "salary_max",
             "salary_currency",       # Đơn vị tiền tệ (VND/USD)
+            "salary_band",
             "deadline_date",         # Đã chuẩn hóa từ deadline
             "inserted_at",           # Ngày crawler quét được
             "ingested_at"            # Timestamp ingest vào Bronze (dùng làm partition key)
@@ -145,11 +146,35 @@ class JobStandardizer:
 
         # Bước 4: Loại bỏ records thiếu thông tin bắt buộc
         required_cols = ["job_url", "job_title", "company_name", "source"]
+        valid_condition = F.lit(True)
+        
+        # Ap dung DLQ (tach df loi ra mot bucket rieng)
         for col_name in required_cols:
             if col_name in df.columns:
-                df = df.filter(F.col(col_name).isNotNull() & (F.trim(F.col(col_name)) != ""))
-
-        return df
+                valid_condition = valid_condition & F.col(col_name).isNotNull() & (F.trim(F.col(col_name)) != "")
+                
+        df_valid = df.filter(valid_condition)
+        df_invalid = df.filter(~valid_condition)
+        
+        if df_invalid.head(1):
+            self.logger.warning('Phat hien loi !!! Missing mandatory fields in some records.')
+            dlq_table_name = f"my_catalog.silver.{self.source_name}_jobs_dlq"
+            df_invalid_with_reason = df_invalid.withColumn(
+                'error_reason', F.lit('Missing mandatory fields')
+            ).withColumn(
+                'failed_at', F.current_timestamp()
+            )
+            
+            if self.spark.catalog.tableExists(dlq_table_name):
+                df_invalid_with_reason.writeTo(dlq_table_name).append()
+                self.logger.info(f"Da dua du lieu loi vao bang DLQ: {dlq_table_name}")
+            else:
+                df_invalid_with_reason.writeTo(dlq_table_name) \
+                                    .tableProperty('format-version', '2') \
+                                    .create()
+                self.logger.info(f"Da tao bang va dua du lieu loi vao DLQ: {dlq_table_name}")
+                
+        return df_valid
     def upload_to_silver(self, df: DataFrame):
         if df.head(1):
             # Xóa trùng lặp trước khi ghi để tránh lỗi Iceberg Merge "Multiple updates for a single row"
@@ -169,6 +194,7 @@ class JobStandardizer:
                 ON target.job_id = source.job_id
                 WHEN MATCHED AND (
                     NOT (target.job_title <=> source.job_title) OR
+                    NOT (target.job_category <=> source.job_category) OR
                     NOT (target.company_name <=> source.company_name) OR
                     NOT (target.location <=> source.location) OR
                     NOT (target.salary_raw <=> source.salary_raw) OR
@@ -178,6 +204,7 @@ class JobStandardizer:
                     NOT (target.working_type_std <=> source.working_type_std)
                 ) THEN UPDATE SET 
                     target.job_title = COALESCE(source.job_title, target.job_title),
+                    target.job_category = COALESCE(source.job_category, target.job_category),
                     target.company_id = COALESCE(source.company_id, target.company_id),
                     target.company_name = COALESCE(source.company_name, target.company_name),
                     target.company_link = COALESCE(source.company_link, target.company_link),
@@ -196,6 +223,7 @@ class JobStandardizer:
                     target.salary_min = COALESCE(source.salary_min, target.salary_min),
                     target.salary_max = COALESCE(source.salary_max, target.salary_max),
                     target.salary_currency = COALESCE(source.salary_currency, target.salary_currency),
+                    target.salary_band = COALESCE(source.salary_band, target.salary_band),
                     target.deadline_date = COALESCE(source.deadline_date, target.deadline_date),
                     target.inserted_at = COALESCE(source.inserted_at, target.inserted_at)
                 WHEN NOT MATCHED THEN INSERT *

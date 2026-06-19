@@ -393,3 +393,113 @@ def generate_company_id(df: DataFrame, company_name_col: str = "company_name") -
         F.md5(F.lower(F.trim(F.col(company_name_col))))
     )
     return df
+
+
+# =============================================================================
+# 10. ENRICH SALARY BAND
+# =============================================================================
+def enrich_salary_band(df: DataFrame) -> DataFrame:
+    if "salary_min" not in df.columns or "salary_max" not in df.columns:
+        return df.withColumn("salary_band", F.lit("Negotiable"))
+    
+    usd_min = F.when(F.col("salary_currency") == "VND", F.col("salary_min") / 25000)\
+               .otherwise(F.col("salary_min"))
+    usd_max = F.when(F.col("salary_currency") == "VND", F.col("salary_max") / 25000)\
+               .otherwise(F.col("salary_max"))
+    
+    avg_salary = F.when(usd_min.isNotNull() & usd_max.isNotNull(), (usd_min + usd_max) / 2)\
+                  .when(usd_min.isNotNull(), usd_min)\
+                  .when(usd_max.isNotNull(), usd_max)\
+                  .otherwise(F.lit(None).cast(T.DoubleType()))
+    
+    df = df.withColumn(
+        "salary_band",
+        F.when(avg_salary.isNull(), F.lit("Negotiable"))
+         .when(avg_salary < 1000, F.lit("< $1000"))
+         .when((avg_salary >= 1000) & (avg_salary <= 2000), F.lit("$1000 - $2000"))
+         .when((avg_salary > 2000) & (avg_salary <= 3000), F.lit("$2000 - $3000"))
+         .otherwise(F.lit("> $3000"))
+    )
+    return df
+
+
+# =============================================================================
+# 11. ENRICH SKILLS FROM TITLE
+# =============================================================================
+def enrich_skills_from_title(df: DataFrame, title_col: str = "job_title") -> DataFrame:
+    if title_col not in df.columns or "skills_array" not in df.columns:
+        return df
+        
+    title_lower = F.lower(F.col(title_col))
+    
+    common_skills = [
+        "python", "java", "javascript", "react", "angular", "vue", "nodejs",
+        "c\\+\\+", "c#", "ruby", "php", "golang", "go", "swift", "kotlin", "aws", "azure", 
+        "gcp", "docker", "kubernetes", "sql", "nosql", "mysql", "postgresql", 
+        "mongodb", "oracle", "spark", "hadoop", "kafka", "django", "spring", "laravel",
+        "flutter", "react native", "unity", "tensorflow", "pytorch", "html", "css",
+        "linux", "bash", "shell", "git", "ci/cd", "elasticsearch", "redis"
+    ]
+    
+    extracted_cols = []
+    for skill in common_skills:
+        pattern = f"\\b{skill}\\b"
+        display_name = skill.replace("\\+", "+").title()
+        if skill == "nodejs": display_name = "NodeJS"
+        elif skill == "ci/cd": display_name = "CI/CD"
+        elif skill == "c\\+\\+": display_name = "C++"
+        elif skill == "c#": display_name = "C#"
+        elif skill == "sql": display_name = "SQL"
+        elif skill == "aws": display_name = "AWS"
+        elif skill == "gcp": display_name = "GCP"
+        elif skill == "react native": display_name = "React Native"
+        
+        extracted_cols.append(
+            F.when(title_lower.rlike(pattern), F.lit(display_name)).otherwise(F.lit(None).cast(T.StringType()))
+        )
+        
+    extracted_array = F.array_except(F.array(*extracted_cols), F.array(F.lit(None).cast(T.StringType())))
+    
+    df = df.withColumn(
+        "skills_array",
+        F.array_distinct(F.concat(F.col("skills_array"), extracted_array))
+    )
+    return df
+
+
+# =============================================================================
+# 12. STANDARDIZE JOB CATEGORY
+# =============================================================================
+def standardize_job_category(df: DataFrame, title_col: str = "job_title") -> DataFrame:
+    if title_col not in df.columns:
+        return df.withColumn("job_category", F.lit("Others"))
+        
+    title_lower = F.lower(F.col(title_col))
+    
+    category_mapping = {
+        "Data Engineer": ["data engineer", "data warehouse", "etl", "big data", "kỹ sư dữ liệu"],
+        "Data Analyst": ["data analyst", "phân tích dữ liệu", "business intelligence", "bi analyst"],
+        "Data Scientist": ["data scientist", "khoa học dữ liệu", "machine learning", "deep learning"],
+        "Fullstack Developer": ["fullstack", "full-stack", "full stack"],
+        "Backend Developer": ["backend", "back-end", "back end", "python", "java", "php", "nodejs", "c#", "c\\+\\+", "\\.net", "golang", "ruby"],
+        "Frontend Developer": ["frontend", "front-end", "front end", "react", "angular", "vue", "html", "css", "web developer"],
+        "Mobile Developer": ["mobile", "ios", "android", "flutter", "react native", "swift", "kotlin"],
+        "DevOps / SRE": ["devops", "sre", "system admin", "sysadmin", "infrastructure", "quản trị hệ thống", "cloud"],
+        "QA/QC / Tester": ["qa", "qc", "tester", "kiểm thử", "automation test"],
+        "Project Manager": ["project manager", "quản lý dự án", "scrum master", "product manager", "po"],
+        "Business Analyst": ["business analyst", "ba", "phân tích nghiệp vụ"],
+        "Security / IT Support": ["security", "bảo mật", "it support", "helpdesk", "kỹ thuật viên it"],
+        "AI Engineer": ["ai","ai engineer","trí tuệ nhân tạo"]
+    }
+    
+    job_cat_col = F.lit(None).cast(T.StringType())
+    
+    for category, keywords in category_mapping.items():
+        pattern = "|".join([f"\\b{k}\\b" for k in keywords])
+        job_cat_col = F.when(title_lower.rlike(pattern), F.lit(category)).otherwise(job_cat_col)
+        
+    df = df.withColumn(
+        "job_category",
+        F.when(job_cat_col.isNotNull(), job_cat_col).otherwise(F.lit("Others"))
+    )
+    return df
