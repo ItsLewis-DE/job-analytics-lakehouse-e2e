@@ -13,7 +13,7 @@ def main():
         "--source",
         type=str,
         required=True,
-        help="Tên nguồn dữ liệu (itviec, vietnamworks) hoặc 'all' để chạy tất cả"
+        help="Tên nguồn dữ liệu (itviec, vietnamworks, careerviet) hoặc 'all' để chạy tất cả"
     )
     parser.add_argument(
         "--date",

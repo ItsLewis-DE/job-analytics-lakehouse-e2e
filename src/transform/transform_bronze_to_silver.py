@@ -3,13 +3,15 @@ from datetime import datetime
 from src.transform.job_standardizer import (
     JobStandardizer,
     ITVIEC_COLUMN_MAPPING,
-    VIETNAMWORKS_COLUMN_MAPPING
+    VIETNAMWORKS_COLUMN_MAPPING,
+    CAREERVIET_COLUMN_MAPPING
 )
 
-VALID_SOURCES = ['itviec', 'vietnamworks']
+VALID_SOURCES = ['itviec', 'vietnamworks', 'careerviet']
 MAPPING_DICT = {
     "itviec": ITVIEC_COLUMN_MAPPING,
-    "vietnamworks": VIETNAMWORKS_COLUMN_MAPPING
+    "vietnamworks": VIETNAMWORKS_COLUMN_MAPPING,
+    "careerviet": CAREERVIET_COLUMN_MAPPING
 }
 
 def main():
@@ -20,7 +22,7 @@ def main():
         "--source",
         type=str,
         required=True,
-        help="Tên nguồn dữ liệu (itviec, vietnamworks) hoặc 'all' để chạy tất cả"
+        help="Tên nguồn dữ liệu (itviec, vietnamworks, careerviet) hoặc 'all' để chạy tất cả"
     )
     parser.add_argument(
         "--date",

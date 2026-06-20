@@ -42,6 +42,9 @@ VIETNAMWORKS_COLUMN_MAPPING = {
     "link_company": "company_link",
 }
 
+CAREERVIET_COLUMN_MAPPING = {
+    "industry": "company_industry"
+}
 
 # =============================================================================
 # ORCHESTRATOR CLASS

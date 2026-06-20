@@ -16,7 +16,7 @@ from src.utils.spark_util import get_spark_session
 class BaseIngestor:
 
     # Các nguồn dữ liệu hợp lệ (đảm bảo phải có file schema tương ứng)
-    VALID_SOURCES = ['itviec', 'vietnamworks']
+    VALID_SOURCES = ['itviec', 'vietnamworks', 'careerviet']
 
     def __init__(self, source_name: str, date: datetime):
         # --- Validate source ---

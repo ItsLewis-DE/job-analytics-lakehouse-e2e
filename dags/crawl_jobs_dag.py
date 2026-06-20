@@ -13,7 +13,7 @@ default_args = {
 }
 
 
-SOURCES = ['itviec', 'vietnamworks']
+SOURCES = ['itviec', 'vietnamworks', 'careerviet']
 
 CRAWLER_IMAGE = 'job-crawler:latest'
 SPARK_IMAGE = 'job-spark:latest'
