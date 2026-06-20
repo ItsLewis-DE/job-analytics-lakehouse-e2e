@@ -2,15 +2,12 @@ import argparse
 from datetime import datetime
 from src.transform.job_standardizer import (
     JobStandardizer,
-    TOPCV_COLUMN_MAPPING,
     ITVIEC_COLUMN_MAPPING,
     VIETNAMWORKS_COLUMN_MAPPING
 )
 
-VALID_SOURCES = ['itviec', 'topcv', 'vietnamworks']
-
+VALID_SOURCES = ['itviec', 'vietnamworks']
 MAPPING_DICT = {
-    "topcv": TOPCV_COLUMN_MAPPING,
     "itviec": ITVIEC_COLUMN_MAPPING,
     "vietnamworks": VIETNAMWORKS_COLUMN_MAPPING
 }
@@ -23,7 +20,7 @@ def main():
         "--source",
         type=str,
         required=True,
-        help="Tên nguồn dữ liệu (itviec, topcv, vietnamworks) hoặc 'all' để chạy tất cả"
+        help="Tên nguồn dữ liệu (itviec, vietnamworks) hoặc 'all' để chạy tất cả"
     )
     parser.add_argument(
         "--date",

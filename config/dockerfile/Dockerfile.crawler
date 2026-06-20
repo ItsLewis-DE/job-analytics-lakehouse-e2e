@@ -35,4 +35,4 @@ COPY data/ ./data/
 ENV PYTHONPATH=/app
 
 # Mặc định sẽ ghi đè CMD trong DAG
-CMD ["python", "src/extract/topcv.py"]
+CMD ["python", "src/extract/itviec.py"]

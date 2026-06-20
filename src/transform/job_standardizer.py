@@ -24,13 +24,6 @@ from src.transform.standardizers import (
 # =============================================================================
 # COLUMN MAPPINGS PER SOURCE
 # =============================================================================
-TOPCV_COLUMN_MAPPING = {
-    "name_company": "company_name",
-    "field": "company_industry",
-    "scale": "scale",         
-    "address": "company_address",
-    "link_company": "company_link",
-}
 
 ITVIEC_COLUMN_MAPPING = {
     "company_name": "company_name",
