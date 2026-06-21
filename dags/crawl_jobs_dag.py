@@ -88,6 +88,17 @@ with DAG(
         mounts=[Mount(source='/home/phongthanh/job-analyst-project/data', target='/app/data', type='bind')],
     )
 
+    publish_postgres_task = DockerOperator(
+        task_id='publish_gold_to_postgres',
+        image=GOLD_IMAGE,
+        command='python src/load/publish_gold_to_postgres.py',
+        api_version='auto',
+        auto_remove='force',
+        docker_url='unix://var/run/docker.sock',
+        network_mode=NETWORK_MODE,
+        mount_tmp_dir=False,
+    )
+
     for i in range(len(SOURCES)):
         crawl_tasks[SOURCES[i]] >> ingest_tasks[SOURCES[i]] >> standard_tasks[SOURCES[i]] >> gold_task
         
@@ -95,3 +106,4 @@ with DAG(
         if i > 0:
             crawl_tasks[SOURCES[i-1]] >> crawl_tasks[SOURCES[i]]
 
+    gold_task >> publish_postgres_task

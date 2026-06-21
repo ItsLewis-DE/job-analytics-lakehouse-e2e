@@ -198,50 +198,38 @@ services:
       - ./logs:/opt/airflow/logs
     command: scheduler
 
-  # Trino Query Engine
-  trino:
-    image: trinodb/trino:latest
-    container_name: trino
-    depends_on:
-      - metastore
-      - minio
-    ports:
-      - "8083:8080"
-    volumes:
-      - ./trino/etc:/etc/trino
-
-  # PostgreSQL for Superset Backend
-  postgres-superset:
+  # PostgreSQL for Serving (Gold Marts for Superset)
+  postgres-serving:
     image: postgres:13-alpine
-    container_name: postgres-superset
+    container_name: postgres-serving
     environment:
-      POSTGRES_USER: superset
+      POSTGRES_USER: superset_user
       POSTGRES_PASSWORD: superset_password
-      POSTGRES_DB: superset
+      POSTGRES_DB: serving_db
     ports:
       - "5435:5432"
     volumes:
-      - postgres_superset_data:/var/lib/postgresql/data
+      - postgres_serving_data:/var/lib/postgresql/data
 
   # Superset Init
   superset-init:
     image: apache/superset:latest
+    user: "root"
     container_name: superset-init
-    depends_on:
-      - postgres-superset
-    command: >
-      bash -c "superset db upgrade && 
-               superset fab create-admin --username admin --firstname Superset --lastname Admin --email admin@superset.com --password admin && 
-               superset init"
-    environment:
-      - SUPERSET_SECRET_KEY=yoursecretkey1234567890
-      - SQLALCHEMY_DATABASE_URI=postgresql+psycopg2://superset:superset_password@postgres-superset:5432/superset
     volumes:
       - superset_home:/app/superset_home
+    command: >
+      bash -c "pip install --target /app/.venv/lib/python3.10/site-packages psycopg2-binary &&
+               /app/.venv/bin/superset db upgrade && 
+               /app/.venv/bin/superset fab create-admin --username admin --firstname Superset --lastname Admin --email admin@superset.com --password admin && 
+               /app/.venv/bin/superset init"
+    environment:
+      - SUPERSET_SECRET_KEY=yoursecretkey1234567890
 
   # Superset Webserver
   superset:
     image: apache/superset:latest
+    user: "root"
     container_name: superset
     restart: always
     depends_on:
@@ -256,10 +244,12 @@ services:
       - SQLALCHEMY_DATABASE_URI=postgresql+psycopg2://superset:superset_password@postgres-superset:5432/superset
     volumes:
       - superset_home:/app/superset_home
+    command: >
+      bash -c "pip install --target /app/.venv/lib/python3.10/site-packages psycopg2-binary && /app/docker/entrypoints/run-server.sh"
 
 volumes:
   minio_data:
   postgres_data:
   postgres_airflow_data:
-  postgres_superset_data:
+  postgres_serving_data:
   superset_home:
