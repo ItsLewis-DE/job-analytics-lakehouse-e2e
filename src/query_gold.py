@@ -1,16 +1,12 @@
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
-
+from src.utils.spark_util import get_spark_session
 def main():
     print("="*60)
     print("KHỞI TẠO SPARK SESSION ĐỂ ĐỌC DỮ LIỆU GOLD...")
     print("="*60)
     
-    spark = SparkSession.builder \
-        .appName("QueryGoldData") \
-        .getOrCreate()
-        
-    spark.sparkContext.setLogLevel("WARN")
+    spark = get_spark_session('hehe')
 
     try:
         print("Đang đọc các bảng từ catalog my_catalog.gold...")
@@ -39,14 +35,7 @@ def main():
         print("KẾT QUẢ: DANH SÁCH VIỆC LÀM ĐÃ ĐƯỢC CHUẨN HÓA VÀ LIÊN KẾT (GOLD LAYER)")
         print("="*80)
         
-        joined_df.select(
-            "job_title", 
-            "company_name", 
-            "location_name", 
-            "job_category_name",
-            "salary_band",
-            "skills"
-        ).show(20, truncate=50)
+        joined_df.write.mode('overwrite').json('output')
         
         # In ra tổng số lượng việc làm
         total_jobs = fact_job.count()

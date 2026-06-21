@@ -12,7 +12,7 @@ class GoldTransformer:
         self.spark = get_spark_session("transform_silver_to_gold")
         self.start_time = date.strftime("%Y-%m-%d 00:00:00")
         self.end_time = date.strftime("%Y-%m-%d 23:59:59")
-        self.sources = ['itviec', 'vietnamworks', 'careerviet']
+        self.sources = ['itviec', 'vietnamworks', 'careerviet', 'topcv']
 
         self.logger = logging.getLogger("gold_transformer")
         if not self.logger.handlers:

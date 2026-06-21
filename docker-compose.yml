@@ -35,7 +35,7 @@ services:
       - postgres
       - minio
     environment:
-      IS_RESUME: 'false'
+      IS_RESUME: 'true'
       SERVICE_NAME: 'metastore'
       DB_DRIVER: 'postgres'
       SERVICE_OPTS: >
