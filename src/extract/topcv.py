@@ -101,21 +101,33 @@ class TopcvCrawler(BaseCrawler):
         page = 1
         len_total = 0
         cloudflare_fail_count = 0
+        timeout_reached = False
+        
+        import signal
+        class ProcessTimeoutException(BaseException): pass
+        def timeout_handler(signum, frame):
+            raise ProcessTimeoutException("Quá thời gian 30s")
+        signal.signal(signal.SIGALRM, timeout_handler)
+        
         while True:
             page_data = []
             url = f'{self.start_url}&page={page}'
             self.logger.info(f"=== Đang mở trang danh sách việc làm trang {page} ===")
-            sb.uc_open_with_reconnect(url, 4)
+            if hasattr(sb, 'uc_open_with_reconnect'):
+                sb.uc_open_with_reconnect(url, 4)
+            else:
+                sb.get(url)
             sb.sleep(3)
             
             page_title = sb.get_title()
             if "Just a moment" in page_title or "Cloudflare" in page_title or sb.is_element_visible("#challenge-error-text"):
                 self.logger.warning(f"Bị Cloudflare chặn ở trang danh sách. Đang thử bypass...")
-                sb.uc_gui_click_captcha()
+                if hasattr(sb, 'uc_gui_click_captcha'):
+                    sb.uc_gui_click_captcha()
                 sb.sleep(4)
                 if "Just a moment" in sb.get_title() or "Cloudflare" in sb.get_title() or sb.is_element_visible("#challenge-error-text"):
-                    cloudflare_fail_count += 1
-                    continue
+                    self.logger.error("Không thể vào đc trang")
+                    raise Exception("Bị Cloudflare chặn cứng ở trang danh sách!")
                     
             html = sb.get_page_source()
             soup = BeautifulSoup(html, 'lxml')
@@ -129,10 +141,10 @@ class TopcvCrawler(BaseCrawler):
             self.logger.info(f"Tìm thấy {len(job_urls)} công việc trên trang {page}")
             consecutive_errors = 0
             
+            cloudflare_fail_count = 0
             for job_url in job_urls:
                 if cloudflare_fail_count > 10:
-                    import sys
-                    sys.exit(1)
+                    break
                 
                 if len_total + len(page_data) >= 200:
                     self.logger.info("Đã đạt giới hạn 200 việc làm. Dừng crawl ở trang này.")
@@ -140,28 +152,29 @@ class TopcvCrawler(BaseCrawler):
                     
                 self.logger.info(f"Đang lấy chi tiết: {job_url}")
                 try:
-                    if hasattr(sb, 'driver') and sb.driver:
-                        sb.driver.set_page_load_timeout(30)
-                    try:
-                        sb.uc_open_with_reconnect(job_url, 4)
-                    except Exception:
-                        sb.get(job_url)
-                    sb.sleep(3)
+                    signal.alarm(30)
+                    sb.get(job_url)
+                    import random
+                    sb.sleep(random.uniform(3, 6))
                     
                     # Kiểm tra xem có bị dính Cloudflare không
                     page_title = sb.get_title()
                     if "Just a moment" in page_title or "Cloudflare" in page_title or sb.is_element_visible("#challenge-error-text"):
                         self.logger.warning(f"Bị Cloudflare chặn ở URL: {job_url}. Đang thử bypass...")
-                        sb.uc_gui_click_captcha()
+                        if hasattr(sb, 'uc_gui_click_captcha'):
+                            sb.uc_gui_click_captcha()
                         sb.sleep(4)
                         
                         if "Just a moment" in sb.get_title() or "Cloudflare" in sb.get_title() or sb.is_element_visible("#challenge-error-text"):
                             self.logger.warning("Vẫn bị chặn, click thử lại...")
-                            sb.uc_gui_click_captcha()
+                            if hasattr(sb, 'uc_gui_click_captcha'):
+                                sb.uc_gui_click_captcha()
                             sb.sleep(4)
                             
                             if "Just a moment" in sb.get_title() or "Cloudflare" in sb.get_title() or sb.is_element_visible("#challenge-error-text"):
+                                self.logger.warning(f"Bỏ qua link do Cloudflare chặn!")
                                 cloudflare_fail_count += 1
+                                signal.alarm(0)
                                 continue
                         
                     html_job = sb.get_page_source()
@@ -172,24 +185,26 @@ class TopcvCrawler(BaseCrawler):
                         job_data['job_url'] = job_url
                         page_data.append(job_data)
                         self.logger.info(f"-> Đã lấy thành công: {job_data['job_title']}")
-                        consecutive_errors = 0
+                    signal.alarm(0)
+                    cloudflare_fail_count = 0
+                except ProcessTimeoutException as e:
+                    self.logger.warning(f"Dừng task sớm do xử lý URL quá 30s: {job_url}")
+                    timeout_reached = True
+                    break
                 except Exception as e:
+                    signal.alarm(0)
                     self.logger.error(f"Lỗi khi truy cập {job_url}: {e}")
-                    consecutive_errors += 1
-                    if consecutive_errors >= 3 or "Connection refused" in str(e) or "Max retries exceeded" in str(e) or "not connected to DevTools" in str(e) or "renderer" in str(e):
-                        self.logger.error("Trình duyệt đã crash hoặc lỗi liên tiếp quá nhiều. Dừng task để Airflow retry!")
-                        import sys
-                        sys.exit(1)
-                
-                cloudflare_fail_count = 0
+                    if "Connection refused" in str(e) or "Max retries exceeded" in str(e) or "not connected to DevTools" in str(e):
+                        self.logger.error("Trình duyệt đã crash hoặc mất kết nối WebDriver. Dừng task để Airflow retry!")
+                        break
                     
             if page_data:
                 self.save_to_json(page_data)
 
             len_total += len(page_data)
             
-            if len_total >= 200:
-                self.logger.info("Đã đạt giới hạn 200 việc làm. Kết thúc toàn bộ quá trình crawl.")
+            if len_total >= 200 or timeout_reached:
+                self.logger.info("Đã đạt giới hạn 200 việc làm hoặc timeout. Kết thúc toàn bộ quá trình crawl.")
                 break
             page += 1
             

@@ -1,6 +1,10 @@
 import os
 from pyspark.sql import SparkSession 
 
+# Fix Java 17+ ExceptionInInitializerError (DirectByteBuffer)
+java_opts = "-XX:+IgnoreUnrecognizedVMOptions --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED --add-opens=java.base/java.io=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.util.concurrent=ALL-UNNAMED --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/sun.nio.cs=ALL-UNNAMED --add-opens=java.base/sun.security.action=ALL-UNNAMED --add-opens=java.base/sun.util.calendar=ALL-UNNAMED --add-opens=java.security.jgss/sun.security.krb5=ALL-UNNAMED"
+os.environ["PYSPARK_SUBMIT_ARGS"] = f"--driver-java-options '{java_opts}' pyspark-shell" 
+
 def get_spark_session(app_name: str) -> SparkSession:
     # 1. Kiểm tra môi trường (chạy trong Docker hay chạy Local)
     is_docker = os.path.exists('/.dockerenv')
@@ -15,6 +19,7 @@ def get_spark_session(app_name: str) -> SparkSession:
 
     if not is_docker:
         builder = builder \
+            .config("spark.jars.packages", "org.apache.iceberg:iceberg-spark-runtime-3.5_2.12:1.5.2,org.apache.hadoop:hadoop-aws:3.3.4,com.amazonaws:aws-java-sdk-bundle:1.12.262") \
             .config("spark.hadoop.fs.s3a.endpoint", minio_endpoint) \
             .config("spark.hadoop.fs.s3a.access.key", minio_access_key) \
             .config("spark.hadoop.fs.s3a.secret.key", minio_secret_key) \

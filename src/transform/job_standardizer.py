@@ -24,13 +24,6 @@ from src.transform.standardizers import (
 # =============================================================================
 # COLUMN MAPPINGS PER SOURCE
 # =============================================================================
-TOPCV_COLUMN_MAPPING = {
-    "name_company": "company_name",
-    "field": "company_industry",
-    "scale": "scale",         
-    "address": "company_address",
-    "link_company": "company_link",
-}
 
 ITVIEC_COLUMN_MAPPING = {
     "company_name": "company_name",
@@ -49,6 +42,17 @@ VIETNAMWORKS_COLUMN_MAPPING = {
     "link_company": "company_link",
 }
 
+CAREERVIET_COLUMN_MAPPING = {
+    "industry": "company_industry"
+}
+
+TOPCV_COLUMN_MAPPING = {
+    "name_company": "company_name",
+    "field": "company_industry",
+    "scale": "scale",
+    "address": "company_address",
+    "link_company": "company_link",
+}
 
 # =============================================================================
 # ORCHESTRATOR CLASS
@@ -108,7 +112,8 @@ class JobStandardizer:
                 .transform(standardize_company_size, size_col="scale")
                 .transform(generate_company_id, company_name_col="company_name")
                 .transform(generate_job_id, source_col="source", url_col="job_url"))
-
+        #Tránh trùng lặp
+        df = df.dropDuplicates(["job_id"])
         # Bước 3: Lọc và sắp xếp các cột cuối cùng cho lớp Silver (Final Schema)
         final_columns = [
             "job_id",
@@ -177,9 +182,6 @@ class JobStandardizer:
         return df_valid
     def upload_to_silver(self, df: DataFrame):
         if df.head(1):
-            # Xóa trùng lặp trước khi ghi để tránh lỗi Iceberg Merge "Multiple updates for a single row"
-            df = df.dropDuplicates(["job_id"])
-            
             table_name = f"my_catalog.silver.{self.source_name}_jobs"
             self.logger.info(f"Đang ghi dữ liệu xuống Iceberg table: {table_name}")
             

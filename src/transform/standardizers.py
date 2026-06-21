@@ -478,7 +478,7 @@ def standardize_job_category(df: DataFrame, title_col: str = "job_title") -> Dat
     
     category_mapping = {
         "Data Engineer": ["data engineer", "data warehouse", "etl", "big data", "kỹ sư dữ liệu"],
-        "Data Analyst": ["data analyst", "phân tích dữ liệu", "business intelligence", "bi analyst"],
+        "Data Analyst": ["data analyst", "phân tích dữ liệu", "business intelligence", "bi analyst", 'data analysis'],
         "Data Scientist": ["data scientist", "khoa học dữ liệu", "machine learning", "deep learning"],
         "Fullstack Developer": ["fullstack", "full-stack", "full stack"],
         "Backend Developer": ["backend", "back-end", "back end", "python", "java", "php", "nodejs", "c#", "c\\+\\+", "\\.net", "golang", "ruby"],

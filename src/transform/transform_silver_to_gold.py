@@ -12,7 +12,7 @@ class GoldTransformer:
         self.spark = get_spark_session("transform_silver_to_gold")
         self.start_time = date.strftime("%Y-%m-%d 00:00:00")
         self.end_time = date.strftime("%Y-%m-%d 23:59:59")
-        self.sources = ['topcv', 'itviec', 'vietnamworks']
+        self.sources = ['itviec', 'vietnamworks', 'careerviet', 'topcv']
 
         self.logger = logging.getLogger("gold_transformer")
         if not self.logger.handlers:
@@ -53,7 +53,7 @@ class GoldTransformer:
 
         # 1. dim_company
         dim_company = df.select(
-            "company_id", "company_name", "industry", "company_size_std", 
+            "company_id", "company_name", "company_industry", "company_size_std", 
             "company_address", "company_link"
         ).dropDuplicates(["company_id"]).filter(F.col("company_id").isNotNull())
         self._merge_dimension(dim_company, "my_catalog.gold.dim_company", "company_id")

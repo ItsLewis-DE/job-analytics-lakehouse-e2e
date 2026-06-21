@@ -78,7 +78,31 @@ class BaseCrawler:
         if os.path.exists(self.local_file):
             os.remove(self.local_file)
             self.logger.info("Da xoa file cu de trach trung du lieu!")
-        use_xvfb = getattr(self, 'is_docker', os.path.exists('/.dockerenv'))
-        with SB(uc=True, headless=False, xvfb=use_xvfb, incognito=True) as sb:
+        use_xvfb = getattr(self, 'is_docker', os.path.exists('/.dockerenv')) #Kiêm tra có chạy trên docker k nếu có thì giả bật màn hình ảo
+        
+        sb_context = SB(uc=True, headless=False, xvfb=use_xvfb, incognito=True, page_load_strategy="none")
+        sb = sb_context.__enter__()
+        
+        try:
             self.do_crawl(sb)
-        self.upload_to_minio()
+        finally:
+            self.upload_to_minio()
+            
+            self.logger.info("Đang đóng trình duyệt...")
+            import signal #cái này để tránh lỗi timeout
+            class BrowserQuitTimeout(BaseException): pass
+            def quit_handler(signum, frame):
+                raise BrowserQuitTimeout("Quá thời gian 10s đóng trình duyệt")
+            
+            old_handler = signal.signal(signal.SIGALRM, quit_handler) #Quăng cái chuông cũ ra ngoài
+            signal.alarm(10) #Nếu quá 10 giây thì hệ thuống sẽ thoát
+            try:
+                sb_context.__exit__(None, None, None)
+                self.logger.info("Đóng trình duyệt thành công.")
+            except BrowserQuitTimeout:
+                self.logger.warning("Trình duyệt bị đơ nên không thể đóng sạch sẽ. Bỏ qua để hoàn thành task!")
+            except Exception as e:
+                self.logger.warning(f"Lỗi khi đóng trình duyệt: {e}")
+            finally:
+                signal.alarm(0)
+                signal.signal(signal.SIGALRM, old_handler)

@@ -5,14 +5,12 @@ Dự án Xây dựng Hệ thống Data Lakehouse thu thập, xử lý và phân 
 ---
 
 ## 📌 1. Nguồn Dữ Liệu (Data Sources)
-Hệ thống cào dữ liệu tự động (Crawl) bằng thư viện `BeautifulSoup4 (bs4)` từ 4 nền tảng tuyển dụng phổ biến nhất:
+Hệ thống cào dữ liệu tự động (Crawl) bằng thư viện `BeautifulSoup4 (bs4)` từ 2 nền tảng tuyển dụng phổ biến nhất:
 
 1. **ITViec:**
    - *Dữ liệu thu thập:* Tên công ty, địa chỉ, hình thức làm việc (remote/office), mức lương, kỹ năng, chuyên môn, domain công việc, loại hình công ty, quy mô công ty, quốc gia, ngày làm việc, link bài viết.
-2. **TopCV:**
-   - *Dữ liệu thu thập:* Lương, địa điểm, kinh nghiệm, hạn nộp, yêu cầu, quyền lợi, chuyên môn, cấp bậc, học vấn, số lượng tuyển, hình thức làm việc, thời gian làm việc, kỹ năng, tên công ty, quy mô, lĩnh vực, địa điểm, link bài viết.
 
-4. **VietnamWorks:**
+2. **VietnamWorks:**
    - *Dữ liệu thu thập:* Hạn nộp hồ sơ, lương, mức độ gấp, địa điểm, yêu cầu công việc, kinh nghiệm, kỹ năng, tên công ty, địa chỉ công ty, quy mô công ty, link website, phúc lợi, cấp bậc, trình độ học vấn, giờ làm việc, ngày làm việc, loại hình làm việc, độ tuổi, lĩnh vực.
 
 > ⏳ **Lịch trình chạy:** Toàn bộ quá trình cào dữ liệu được tự động hóa (Automated cronjob) chạy vào lúc **00:00 sáng** hằng ngày.
@@ -50,7 +48,7 @@ Dữ liệu di chuyển theo đường ống (Pipeline) thông qua **Apache Spar
 ### 🥈 Lớp Silver (Cleansed & Conformed Data)
 - **Thiết kế:** Chuyển đổi dữ liệu từ thiết kế theo nguồn sang thiết kế theo Thực thể (Entities).
 - **Xử lý:**
-  - **UNION:** Gộp (Union) dữ liệu từ 4 bảng độc lập ở tầng Bronze lại thành các bảng thực thể chuẩn hóa chung.
+  - **UNION:** Gộp (Union) dữ liệu từ 2 bảng độc lập ở tầng Bronze lại thành các bảng thực thể chuẩn hóa chung.
   - Làm sạch dữ liệu, xử lý missing values, ép kiểu dữ liệu (casting).
   - Áp dụng kỹ thuật **Slowly Changing Dimension Type 2 (SCD2)** qua câu lệnh `MERGE INTO` của Iceberg để cập nhật thông tin bài đăng nhưng **vẫn giữ lại toàn bộ dữ liệu lịch sử thay đổi** (ví dụ: biến động mức lương của một vị trí theo thời gian).
 
