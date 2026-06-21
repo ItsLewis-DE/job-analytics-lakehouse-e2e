@@ -94,7 +94,6 @@ class VietnamworksCrawler(BaseCrawler):
         total_job = 0
         cloudflare_fail_count = 0
         timeout_reached = False
-        seen_urls = set()
         
         import signal
         class ProcessTimeoutException(BaseException): pass
@@ -134,8 +133,7 @@ class VietnamworksCrawler(BaseCrawler):
                     if len(href) > 20: 
                         if href.startswith('/'):
                             href = 'https://www.vietnamworks.com' + href
-                        if 'vietnamworks.com' in href and href not in seen_urls:
-                            seen_urls.add(href)
+                        if 'vietnamworks.com' in href and href not in job_urls:
                             job_urls.append(href)
             
             if not job_urls:

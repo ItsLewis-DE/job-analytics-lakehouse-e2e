@@ -19,7 +19,7 @@ def get_spark_session(app_name: str) -> SparkSession:
 
     if not is_docker:
         builder = builder \
-            .config("spark.jars.packages", "org.apache.iceberg:iceberg-spark-runtime-3.5_2.12:1.5.2,org.apache.hadoop:hadoop-aws:3.3.4,com.amazonaws:aws-java-sdk-bundle:1.12.262") \
+            .config("spark.jars.packages", "org.postgresql:postgresql:42.6.0,org.apache.iceberg:iceberg-spark-runtime-3.5_2.12:1.5.2,org.apache.hadoop:hadoop-aws:3.3.4,com.amazonaws:aws-java-sdk-bundle:1.12.262") \
             .config("spark.hadoop.fs.s3a.endpoint", minio_endpoint) \
             .config("spark.hadoop.fs.s3a.access.key", minio_access_key) \
             .config("spark.hadoop.fs.s3a.secret.key", minio_secret_key) \
