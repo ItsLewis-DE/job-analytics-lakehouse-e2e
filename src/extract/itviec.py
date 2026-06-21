@@ -122,6 +122,7 @@ class ItviecCrawler(BaseCrawler):
         self.logger.info(f"Tìm thấy {len(job_urls)} công việc trên trang")
         
         job_total = 0
+        consecutive_errors = 0
         all_jobs_data = []
         
         import signal

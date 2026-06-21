@@ -198,16 +198,44 @@ services:
       - ./logs:/opt/airflow/logs
     command: scheduler
 
+  # Trino Query Engine
+  trino:
+    image: trinodb/trino:latest
+    container_name: trino
+    depends_on:
+      - metastore
+      - minio
+    ports:
+      - "8083:8080"
+    volumes:
+      - ./trino/etc:/etc/trino
+
+  # PostgreSQL for Superset Backend
+  postgres-superset:
+    image: postgres:13-alpine
+    container_name: postgres-superset
+    environment:
+      POSTGRES_USER: superset
+      POSTGRES_PASSWORD: superset_password
+      POSTGRES_DB: superset
+    ports:
+      - "5435:5432"
+    volumes:
+      - postgres_superset_data:/var/lib/postgresql/data
+
   # Superset Init
   superset-init:
     image: apache/superset:latest
     container_name: superset-init
+    depends_on:
+      - postgres-superset
     command: >
       bash -c "superset db upgrade && 
                superset fab create-admin --username admin --firstname Superset --lastname Admin --email admin@superset.com --password admin && 
                superset init"
     environment:
       - SUPERSET_SECRET_KEY=yoursecretkey1234567890
+      - SQLALCHEMY_DATABASE_URI=postgresql+psycopg2://superset:superset_password@postgres-superset:5432/superset
     volumes:
       - superset_home:/app/superset_home
 
@@ -219,10 +247,13 @@ services:
     depends_on:
       superset-init:
         condition: service_completed_successfully
+      postgres-superset:
+        condition: service_started
     ports:
       - "8088:8088"
     environment:
       - SUPERSET_SECRET_KEY=yoursecretkey1234567890
+      - SQLALCHEMY_DATABASE_URI=postgresql+psycopg2://superset:superset_password@postgres-superset:5432/superset
     volumes:
       - superset_home:/app/superset_home
 
@@ -230,4 +261,5 @@ volumes:
   minio_data:
   postgres_data:
   postgres_airflow_data:
+  postgres_superset_data:
   superset_home:

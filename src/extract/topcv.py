@@ -139,6 +139,7 @@ class TopcvCrawler(BaseCrawler):
                 
             job_urls = [link['href'] for link in job_links]
             self.logger.info(f"Tìm thấy {len(job_urls)} công việc trên trang {page}")
+            consecutive_errors = 0
             
             cloudflare_fail_count = 0
             for job_url in job_urls:

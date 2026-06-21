@@ -143,6 +143,7 @@ class VietnamworksCrawler(BaseCrawler):
                 break
                 
             self.logger.info(f"Tìm thấy {len(job_urls)} công việc trên trang {page}")
+            consecutive_errors = 0
             
             #Truy cập vào bài đăng tuyển dụng đó để lấy thêm thông tin chi tiết
             cloudflare_fail_count =0
@@ -201,7 +202,8 @@ class VietnamworksCrawler(BaseCrawler):
                 except Exception as e:
                     signal.alarm(0)
                     self.logger.error(f"Lỗi khi truy cập {job_url}: {e}")
-                    if "Connection refused" in str(e) or "Max retries exceeded" in str(e) or "not connected to DevTools" in str(e):
+                    consecutive_errors += 1
+                    if consecutive_errors >= 3 or "Connection refused" in str(e) or "Max retries exceeded" in str(e) or "not connected to DevTools" in str(e) or "renderer" in str(e):
                         self.logger.error("Trình duyệt đã crash hoặc mất kết nối WebDriver. Dừng task để Airflow retry!")
                         import sys
                         sys.exit(1)
