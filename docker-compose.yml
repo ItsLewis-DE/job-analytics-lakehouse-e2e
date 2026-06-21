@@ -235,10 +235,13 @@ services:
     depends_on:
       superset-init:
         condition: service_completed_successfully
+      postgres-superset:
+        condition: service_started
     ports:
       - "8088:8088"
     environment:
       - SUPERSET_SECRET_KEY=yoursecretkey1234567890
+      - SQLALCHEMY_DATABASE_URI=postgresql+psycopg2://superset:superset_password@postgres-superset:5432/superset
     volumes:
       - superset_home:/app/superset_home
     command: >

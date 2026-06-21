@@ -30,6 +30,7 @@ with DAG(
     schedule='0 2 * * *',
     start_date=datetime(2026, 6, 17),
     catchup=False,
+    max_active_tasks=1,  # Giới hạn chỉ chạy 1 task tại 1 thời điểm để tránh quá tải RAM
     tags=['crawler', 'ingest', 'bronze', 'job-analyst', 'docker'],
 ) as dag:
     crawl_tasks = {}
@@ -43,6 +44,7 @@ with DAG(
             docker_url='unix://var/run/docker.sock',
             network_mode=NETWORK_MODE,
             mount_tmp_dir=False,
+            shm_size='2g',
             mounts=[Mount(source='/home/phongthanh/job-analyst-project/data', target='/app/data', type='bind')],
         )
 
