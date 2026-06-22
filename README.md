@@ -1,59 +1,146 @@
 # 🏢 IT Job Analytics Data Lakehouse
 
-Dự án Xây dựng Hệ thống Data Lakehouse thu thập, xử lý và phân tích dữ liệu tuyển dụng IT từ các nền tảng việc làm hàng đầu tại Việt Nam. Dự án áp dụng kiến trúc **Medallion (Bronze, Silver, Gold)** kết hợp cùng **Apache Iceberg**, **Apache Spark** và **MinIO**.
+![Architecture](https://img.shields.io/badge/Architecture-Medallion-blue)
+![Storage](https://img.shields.io/badge/Storage-MinIO%20%7C%20Iceberg-orange)
+![Processing](https://img.shields.io/badge/Processing-Apache%20Spark-E25A1C)
+![Orchestration](https://img.shields.io/badge/Orchestration-Apache%20Airflow-017CEE)
+
+Dự án Xây dựng Hệ thống **Data Lakehouse** phân tán, phục vụ việc tự động thu thập, xử lý, lưu trữ và trực quan hóa dữ liệu thị trường việc làm IT tại Việt Nam.
+
+Dự án áp dụng chặt chẽ kiến trúc **Medallion (Bronze, Silver, Gold)**, tích hợp **Apache Iceberg** trên nền tảng Object Storage **MinIO**, và được điều phối hoàn toàn bằng **Apache Airflow**.
 
 ---
 
-## 📌 1. Nguồn Dữ Liệu (Data Sources)
-Hệ thống cào dữ liệu tự động (Crawl) bằng thư viện `BeautifulSoup4 (bs4)` từ 2 nền tảng tuyển dụng phổ biến nhất:
+## 🏗️ 1. Kiến trúc Hệ thống (Architecture Flow)
 
-1. **ITViec:**
-   - *Dữ liệu thu thập:* Tên công ty, địa chỉ, hình thức làm việc (remote/office), mức lương, kỹ năng, chuyên môn, domain công việc, loại hình công ty, quy mô công ty, quốc gia, ngày làm việc, link bài viết.
+Toàn bộ luồng đi của dữ liệu từ khi nằm trên các trang tuyển dụng cho đến khi được phục vụ cho người dùng cuối qua Dashboard và Discord Bot:
 
-2. **VietnamWorks:**
-   - *Dữ liệu thu thập:* Hạn nộp hồ sơ, lương, mức độ gấp, địa điểm, yêu cầu công việc, kinh nghiệm, kỹ năng, tên công ty, địa chỉ công ty, quy mô công ty, link website, phúc lợi, cấp bậc, trình độ học vấn, giờ làm việc, ngày làm việc, loại hình làm việc, độ tuổi, lĩnh vực.
+```mermaid
+graph TD
+    subgraph Sources ["🌍 Data Sources (Web/API)"]
+        T(TopCV)
+        I(ITViec)
+        V(VietnamWorks)
+        C(CareerViet)
+    end
 
-> ⏳ **Lịch trình chạy:** Toàn bộ quá trình cào dữ liệu được tự động hóa (Automated cronjob) chạy vào lúc **00:00 sáng** hằng ngày.
+    subgraph Orchestration ["⏱️ Apache Airflow"]
+        DAG[daily_job_pipeline DAG]
+    end
+
+    subgraph Processing ["⚡ Processing Layer (Spark/Python)"]
+        Crawler[Data Crawlers]
+        Ingestor[Ingest: Landing ➔ Bronze]
+        Standardizer[Transform: Bronze ➔ Silver]
+        Unifier[Transform: Silver ➔ Gold]
+        Publisher[Load: Gold ➔ Postgres]
+    end
+
+    subgraph DataLake ["🗄️ MinIO Object Storage + Apache Iceberg"]
+        Landing[(Landing Zone\nRaw JSON/CSV)]
+        Bronze[(🥉 Bronze Layer\nIceberg Tables)]
+        Silver[(🥈 Silver Layer\nCleaned/SCD1)]
+        Gold[(🥇 Gold Layer\nStar Schema)]
+    end
+    
+    subgraph Serving ["🚀 Serving & Consumption"]
+        PG[(PostgreSQL\nServing DB)]
+        Superset[📊 Apache Superset\nBI Dashboard]
+        Trino[Presto/Trino\nSQL Engine]
+        Discord[🤖 Discord Bot\nChatbot Query]
+    end
+
+    %% Mappings
+    T & I & V & C -->|Scraping| Crawler
+    Crawler -->|Save Files| Landing
+    Landing -->|PySpark| Ingestor
+    Ingestor -->|Append| Bronze
+    Bronze -->|PySpark| Standardizer
+    Standardizer -->|Clean & SCD2 Merge| Silver
+    Silver -->|PySpark| Unifier
+    Unifier -->|Aggregations| Gold
+    
+    Gold -->|PySpark| Publisher
+    Publisher -->|JDBC| PG
+    PG -->|SQL| Superset
+    
+    Gold -.->|Hive Metastore| Trino
+    Trino -->|Trino Python Client| Discord
+
+    %% Orchestration arrows
+    DAG -.->|Triggers DockerOperator| Processing
+```
 
 ---
 
-## 🗄️ 2. Kiến trúc Lưu trữ (Storage Architecture)
-Hệ thống sử dụng **MinIO (Object Storage)** làm Data Lake và **Apache Iceberg** làm Table Format. Lưu trữ được chia làm 4 Buckets chính:
+## 🧩 2. Cấu trúc Luồng dữ liệu (Data Pipeline)
 
-* `sandbox`: Bucket mặc định của Catalog (chứa `sandbox/warehouse`).
-* `bronze`: Bucket lưu trữ dữ liệu thô.
-* `silver`: Bucket lưu trữ dữ liệu đã làm sạch.
-* `gold`: Bucket lưu trữ dữ liệu phân tích.
-
-**Cấu hình vòng đời dữ liệu (Data Lifecycle Management):**
-- **Bucket `sandbox`:** Cấu hình chính sách tự động xóa (Auto-delete) dữ liệu tối đa 30 ngày để dọn rác.
-- **Bucket `bronze`:** Cấu hình chính sách lưu trữ lạnh (Cold Storage). Dữ liệu thô tồn tại trên 30 ngày sẽ tự động chuyển sang Storage khác rẻ hơn nhằm tối ưu chi phí lưu trữ.
-
-**Cấu hình Catalog (Hive Metastore):**
-- Cấu hình thư mục `warehouse` mặc định trỏ về `s3a://sandbox/warehouse/`.
-- Thiết lập 3 Namespace tương ứng trỏ đích danh (`LOCATION`) về 3 bucket: `bronze`, `silver`, `gold`.
-
----
-
-## 🏗️ 3. Kiến trúc Dữ liệu Medallion (Data Flow)
-
-Dữ liệu di chuyển theo đường ống (Pipeline) thông qua **Apache Spark** từ lúc cào đến lúc đưa lên Dashboard phân tích:
+### 📥 Data Crawling & Landing
+- Thu thập dữ liệu hàng ngày bằng Python từ 4 nguồn: **TopCV, ITViec, VietnamWorks, CareerViet**.
+- Dữ liệu thô (Raw JSON/CSV) được đẩy thẳng vào `Landing Zone` trên MinIO.
 
 ### 🥉 Lớp Bronze (Raw Data)
-- **Thiết kế:** Mỗi nguồn API/Website được lưu thành **1 bảng riêng biệt**.
-- **Xử lý:**
-  - Hàng ngày, sau khi gọi API, toàn bộ JSON/dữ liệu thô được **APPEND** thẳng vào bảng mà không can thiệp cấu trúc.
-  - Tích hợp tính năng **Hidden Partitioning** của Iceberg để tự động chia Partition dữ liệu theo ngày (`ingest_date`).
+- **Công nghệ**: PySpark & Apache Iceberg.
+- **Xử lý**: Đưa dữ liệu thô từ Landing vào các bảng Iceberg. Áp dụng **Hidden Partitioning** theo ngày nạp (`ingest_date`) để tối ưu hiệu suất truy vấn. Dữ liệu được `APPEND` liên tục mà không thay đổi cấu trúc gốc.
 
 ### 🥈 Lớp Silver (Cleansed & Conformed Data)
-- **Thiết kế:** Chuyển đổi dữ liệu từ thiết kế theo nguồn sang thiết kế theo Thực thể (Entities).
-- **Xử lý:**
-  - **UNION:** Gộp (Union) dữ liệu từ 2 bảng độc lập ở tầng Bronze lại thành các bảng thực thể chuẩn hóa chung.
-  - Làm sạch dữ liệu, xử lý missing values, ép kiểu dữ liệu (casting).
-  - Áp dụng kỹ thuật **Slowly Changing Dimension Type 2 (SCD2)** qua câu lệnh `MERGE INTO` của Iceberg để cập nhật thông tin bài đăng nhưng **vẫn giữ lại toàn bộ dữ liệu lịch sử thay đổi** (ví dụ: biến động mức lương của một vị trí theo thời gian).
+- **Công nghệ**: PySpark & Apache Iceberg.
+- **Xử lý**: 
+  - Gộp (UNION) các bảng riêng lẻ từ các nguồn khác nhau thành cấu trúc thực thể chuẩn.
+  - Làm sạch (Data Cleansing), chuẩn hóa kiểu dữ liệu (Casting).
 
 ### 🥇 Lớp Gold (Aggregated & Business Data)
-- **Thiết kế:** Dữ liệu được nhào nặn và phân chia theo chuẩn **Kiến trúc Kimball (Star Schema)**.
-- **Xử lý:**
-  - Tạo các bảng **Fact** (sự kiện) và **Dimension** (danh mục).
-  - Phục vụ trực tiếp cho Data Analyst (DA) kết nối với **Apache Superset** để thiết kế các Dashboard trực quan hóa và phân tích thị trường việc làm IT, mà không cần tốn chi phí thực hiện JOIN phức tạp ở runtime.
+- **Công nghệ**: PySpark & Apache Iceberg.
+- **Xử lý**:
+  - Nhào nặn dữ liệu theo chuẩn **Kimball (Star Schema)** gồm các bảng Fact (Sự kiện) và Dimension (Danh mục).
+  - Tối ưu hóa dữ liệu để sẵn sàng cho nghiệp vụ phân tích BI.
+
+---
+
+## 🚀 3. Tính năng Nổi bật (Key Features)
+
+- **100% Dockerized**: Toàn bộ các service (Airflow, Spark, Trino, MinIO, Superset, Bot) đều được đóng gói và chạy cô lập trong Docker Container.
+- **Tự động hóa hoàn toàn**: Airflow DAG `daily_job_pipeline` tự động kích hoạt tiến trình Crawl -> Ingest -> Transform -> Load.
+- **Zero-Downtime Serving (Blue/Green Deployment)**: Khi đồng bộ dữ liệu từ lớp Gold sang PostgreSQL, dự án sử dụng chiến lược Blue/Green Deployment (ghi vào bảng tạm và dùng kỹ thuật Atomic RENAME). Điều này đảm bảo hệ thống Dashboard và Bot không bao giờ bị gián đoạn (downtime) trong quá trình cập nhật dữ liệu hàng ngày.
+- **Kiểm soát Chất lượng & Cách ly Dữ liệu lỗi (Schema Validation & Quarantine)**: Dữ liệu thô từ Crawler được xác thực chặt chẽ bằng JSON Schema trước khi đưa vào Data Lake. Mọi dòng dữ liệu sai định dạng (Corrupt Records) sẽ tự động bị tách khỏi luồng chính và đẩy vào khu vực cách ly (Dead Letter Queue/Quarantine trên S3) để phân tích sau, bảo vệ tuyệt đối tính toàn vẹn cho lớp Bronze.
+- **Quản lý Vòng đời Dữ liệu (Lifecycle)**: Tự động xóa rác ở vùng Sandbox và đưa dữ liệu thô cũ sang Cold Storage trên MinIO để tiết kiệm dung lượng.
+- **Trực quan hóa đa dạng**: Hỗ trợ Dashboard phân tích chuyên sâu qua Superset và truy vấn nhanh gọn qua trợ lý ảo Discord Bot (tích hợp SQL Engine Trino).
+
+---
+
+## 🛠️ 4. Hướng dẫn Cài đặt & Triển khai (Setup Guide)
+
+**Yêu cầu hệ thống:** Máy tính đã cài đặt **Docker** và **Docker Compose**.
+
+### Bước 1: Cấu hình Môi trường
+Mở file `bot/.env` và thiết lập Token kết nối Discord Bot:
+```env
+DISCORD_BOT_TOKEN=your_bot_token_here
+```
+
+### Bước 2: Build các Docker Images
+Chạy script để đóng gói mã nguồn của Crawler, Spark, và Bot thành Docker Image:
+```bash
+chmod +x config/dockerfile/build_images.sh
+./config/dockerfile/build_images.sh
+```
+
+### Bước 3: Khởi động Hệ thống
+Dựng toàn bộ kiến trúc Data Lakehouse (Postgres, MinIO, Hive Metastore, Trino, Airflow, Superset, Discord Bot):
+```bash
+docker-compose up -d
+```
+
+### Bước 4: Khởi tạo Storage & Namespace
+Chạy kịch bản khởi tạo Buckets trên MinIO và các Namespace (Bronze, Silver, Gold) cho Iceberg:
+```bash
+bash minIO/scripts/full_deploy.sh
+```
+
+### Bước 5: Truy cập các Dịch vụ
+Sau khi hệ thống đã up thành công, bạn có thể truy cập qua các địa chỉ sau:
+- **Apache Airflow:** `http://localhost:8080` *(Bật DAG `daily_job_pipeline` để chạy hệ thống)*
+- **MinIO Console:** `http://localhost:9001` *(Tài khoản: minioadmin / minioadmin)*
+- **Apache Superset:** `http://localhost:8088` *(Tài khoản: admin / admin)*
+- **Trino UI:** `http://localhost:8089`
+- **Discord Bot:** Gõ lệnh `!job search <từ_khóa>` trực tiếp trên server Discord của bạn.

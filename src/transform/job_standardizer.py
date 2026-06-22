@@ -189,45 +189,28 @@ class JobStandardizer:
             if self.spark.catalog.tableExists(table_name):
                 # UPSERT (MERGE INTO) khi bảng đã tồn tại
                 df.createOrReplaceTempView("updates_temp")
-                country_update_str = ""
+                
+                # Lấy danh sách các cột thực sự có trong Dataframe để update (trừ các cột không nên update như job_id)
+                update_cols = [c for c in df.columns if c not in ("job_id", "source", "ingested_at")]
+                
+                # Các cột làm điều kiện kiểm tra xem bản ghi có thay đổi không
+                condition_cols = ["job_title", "job_category", "company_name", "location", "salary_raw", "deadline_date", "experience_req", "level_processed", "working_type_std"]
+                condition_cols_present = [c for c in condition_cols if c in df.columns]
+                
+                if condition_cols_present:
+                    match_cond = " OR ".join([f"NOT (target.{c} <=> source.{c})" for c in condition_cols_present])
+                    when_matched = f"WHEN MATCHED AND ({match_cond}) THEN UPDATE SET"
+                else:
+                    when_matched = "WHEN MATCHED THEN UPDATE SET"
+
+                update_set = ",".join([f"target.{c} = COALESCE(source.{c}, target.{c})" for c in update_cols])
+                
                 merge_query = f"""
                 MERGE INTO {table_name} target
                 USING updates_temp source
                 ON target.job_id = source.job_id
-                WHEN MATCHED AND (
-                    NOT (target.job_title <=> source.job_title) OR
-                    NOT (target.job_category <=> source.job_category) OR
-                    NOT (target.company_name <=> source.company_name) OR
-                    NOT (target.location <=> source.location) OR
-                    NOT (target.salary_raw <=> source.salary_raw) OR
-                    NOT (target.deadline_date <=> source.deadline_date) OR
-                    NOT (target.experience_req <=> source.experience_req) OR
-                    NOT (target.level_processed <=> source.level_processed) OR
-                    NOT (target.working_type_std <=> source.working_type_std)
-                ) THEN UPDATE SET 
-                    target.job_title = COALESCE(source.job_title, target.job_title),
-                    target.job_category = COALESCE(source.job_category, target.job_category),
-                    target.company_id = COALESCE(source.company_id, target.company_id),
-                    target.company_name = COALESCE(source.company_name, target.company_name),
-                    target.company_link = COALESCE(source.company_link, target.company_link),
-                    target.company_address = COALESCE(source.company_address, target.company_address),
-                    target.industry = COALESCE(source.industry, target.industry),
-                    target.location = COALESCE(source.location, target.location),
-                    target.company_size_std = COALESCE(source.company_size_std, target.company_size_std),
-                    target.experience_req = COALESCE(source.experience_req, target.experience_req),
-                    target.level_processed = COALESCE(source.level_processed, target.level_processed),
-                    target.education = COALESCE(source.education, target.education),
-                    target.working_type_std = COALESCE(source.working_type_std, target.working_type_std),
-                    target.working_day = COALESCE(source.working_day, target.working_day),
-                    target.working_hour = COALESCE(source.working_hour, target.working_hour),
-                    target.skills_array = COALESCE(source.skills_array, target.skills_array),
-                    target.salary_raw = COALESCE(source.salary_raw, target.salary_raw),
-                    target.salary_min = COALESCE(source.salary_min, target.salary_min),
-                    target.salary_max = COALESCE(source.salary_max, target.salary_max),
-                    target.salary_currency = COALESCE(source.salary_currency, target.salary_currency),
-                    target.salary_band = COALESCE(source.salary_band, target.salary_band),
-                    target.deadline_date = COALESCE(source.deadline_date, target.deadline_date),
-                    target.inserted_at = COALESCE(source.inserted_at, target.inserted_at)
+                {when_matched}
+                    {update_set}
                 WHEN NOT MATCHED THEN INSERT *
                 """
                 self.spark.sql(merge_query)

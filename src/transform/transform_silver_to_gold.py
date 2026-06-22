@@ -77,6 +77,13 @@ class GoldTransformer:
         dim_skill = skills_df.withColumn("skill_id", F.md5(F.col("skill_name")))
         self._merge_dimension(dim_skill, "my_catalog.gold.dim_skill", "skill_id")
 
+        # 5. dim_level
+        dim_level = df.select("level_processed").dropDuplicates()
+        dim_level = dim_level.filter(F.col("level_processed").isNotNull())
+        dim_level = dim_level.withColumnRenamed("level_processed", "level_name")
+        dim_level = dim_level.withColumn("level_id", F.md5(F.col("level_name")))
+        self._merge_dimension(dim_level, "my_catalog.gold.dim_level", "level_id")
+
     def _merge_dimension(self, dim_df: DataFrame, table_name: str, pk_col: str):
         if self.spark.catalog.tableExists(table_name):
             temp_view_name = f"updates_{table_name.split('.')[-1]}"
@@ -103,11 +110,12 @@ class GoldTransformer:
 
         # Construct Fact Table
         fact_df = df.withColumn("location_id", F.md5(F.col("location"))) \
-                    .withColumn("job_category_id", F.md5(F.col("job_category")))
+                    .withColumn("job_category_id", F.md5(F.col("job_category"))) \
+                    .withColumn("level_id", F.md5(F.col("level_processed")))
                     
         fact_cols = [
             "job_id", "source", "job_url", "job_title",
-            "company_id", "location_id", "job_category_id",
+            "company_id", "location_id", "job_category_id", "level_id",
             "experience_req", "education", "working_type_std", 
             "working_day", "working_hour", 
             "salary_min", "salary_max", "salary_currency", "salary_band", 

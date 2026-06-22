@@ -9,34 +9,34 @@ from pyspark.sql import types as T
 
 LOCATION_MAPPING = {
     # Ho Chi Minh
-    "hồ chí minh": "Ho Chi Minh",
-    "hcm": "Ho Chi Minh",
-    "tp.hcm": "Ho Chi Minh",
-    "tp hcm": "Ho Chi Minh",
-    "ho chi minh": "Ho Chi Minh",
-    "thành phố hồ chí minh": "Ho Chi Minh",
-    "saigon": "Ho Chi Minh",
-    "sài gòn": "Ho Chi Minh",
+    "hồ chí minh": "Hồ Chí Minh",
+    "hcm": "Hồ Chí Minh",
+    "tp.hcm": "Hồ Chí Minh",
+    "tp hcm": "Hồ Chí Minh",
+    "ho chi minh": "Hồ Chí Minh",
+    "thành phố hồ chí minh": "Hồ Chí Minh",
+    "saigon": "Hồ Chí Minh",
+    "sài gòn": "Hồ Chí Minh",
     # Ha Noi
-    "hà nội": "Ha Noi",
-    "ha noi": "Ha Noi",
-    "hanoi": "Ha Noi",
-    "hn": "Ha Noi",
+    "hà nội": "Hà Nội",
+    "ha noi": "Hà Nội",
+    "hanoi": "Hà Nội",
+    "hn": "Hà Nội",
     # Da Nang
-    "đà nẵng": "Da Nang",
-    "da nang": "Da Nang",
+    "đà nẵng": "Đà Nẵng",
+    "da nang": "Đà Nẵng",
     # Hai Phong
-    "hải phòng": "Hai Phong",
-    "hai phong": "Hai Phong",
+    "hải phòng": "Hải Phòng",
+    "hai phong": "Hải Phòng",
     # Can Tho
-    "cần thơ": "Can Tho",
-    "can tho": "Can Tho",
+    "cần thơ": "Cần Thơ",
+    "can tho": "Cần Thơ",
     # Binh Duong
-    "bình dương": "Binh Duong",
-    "binh duong": "Binh Duong",
+    "bình dương": "Bình Dương",
+    "binh duong": "Bình Dương",
     # Dong Nai
-    "đồng nai": "Dong Nai",
-    "dong nai": "Dong Nai",
+    "đồng nai": "Đồng Nai",
+    "dong nai": "Đồng Nai",
     # Oversea
     "oversea": "Oversea",
     "overseas": "Oversea",
@@ -100,15 +100,30 @@ def extract_salary(df: DataFrame, salary_col: str = "salary") -> DataFrame:
         | cleaned.contains("thỏa thuận")
         | cleaned.contains("thương lượng")
         | cleaned.contains("negotiable")
+        | cleaned.contains("cạnh tranh")
         | cleaned.isNull()
     )
 
-    first_number = F.regexp_extract(cleaned, r"(\d+[\.,]?\d*)", 1)
-    second_number = F.regexp_extract(cleaned, r"\d+[\.,]?\d*[\s]*[-–~]\s*(\d+[\.,]?\d*)", 1)
+    # Detect đơn vị tiền tệ
+    is_usd = cleaned.contains("usd") | cleaned.contains("$")
 
-    # Chuyển dấu phẩy thành dấu chấm rồi cast thành double
-    first_num = F.regexp_replace(first_number, ",", ".").cast(T.DoubleType())
-    second_num = F.regexp_replace(second_number, ",", ".").cast(T.DoubleType())
+    first_number = F.regexp_extract(cleaned, r"(\d+[\.,]?\d*)", 1)
+    second_number = F.regexp_extract(cleaned, r"[-–~][\s]*(\d+[\.,]?\d*)", 1)
+
+    # Xử lý dấu phẩy/chấm khác nhau giữa USD và VND
+    first_num = F.when(
+        is_usd, 
+        F.regexp_replace(first_number, r"[,\.]", "").cast(T.DoubleType())
+    ).otherwise(
+        F.regexp_replace(first_number, ",", ".").cast(T.DoubleType())
+    )
+    
+    second_num = F.when(
+        is_usd, 
+        F.regexp_replace(second_number, r"[,\.]", "").cast(T.DoubleType())
+    ).otherwise(
+        F.regexp_replace(second_number, ",", ".").cast(T.DoubleType())
+    )
 
     # Xác định kiểu pattern: "Từ X" (chỉ có min), "Tới X" (chỉ có max), "X - Y" (cả hai)
     has_prefix_from = (
@@ -138,14 +153,11 @@ def extract_salary(df: DataFrame, salary_col: str = "salary") -> DataFrame:
          .otherwise(F.lit(None).cast(T.DoubleType()))
     )
 
-    # Detect đơn vị tiền tệ
-    is_usd = cleaned.contains("usd") | cleaned.contains("$")
-
     df = df.withColumn(
         "salary_currency",
         F.when(is_negotiable, F.lit(None).cast(T.StringType()))
          .when(is_usd, F.lit("USD"))
-         .otherwise(F.lit("VND"))  # Default cho thị trường VN
+         .otherwise(F.lit("tr VND"))  # Default cho thị trường VN
     )
 
     return df
@@ -238,8 +250,7 @@ def standardize_experience(df: DataFrame, exp_col: str = "experience") -> DataFr
 
     df = df.withColumn(
         "experience_req",
-        F.when(exp_lower.isNull(), F.lit(None))
-         .when(is_not_required, F.lit("Not required"))
+        F.when(is_not_required, F.lit("Not required"))
          .when(
              exp_lower.contains("dưới") | exp_lower.contains("under") | exp_lower.contains("less"),
              F.concat(F.lit("< "), years_num.cast(T.StringType()), F.lit(" years"))
@@ -252,7 +263,7 @@ def standardize_experience(df: DataFrame, exp_col: str = "experience") -> DataFr
              years_num.isNotNull(),
              F.concat(years_num.cast(T.StringType()), F.lit(" years"))
          )
-         .otherwise(F.trim(F.col(exp_col)))
+         .otherwise(F.lit(None).cast(T.StringType()))
     )
 
     return df
@@ -352,12 +363,13 @@ def standardize_company_size(df: DataFrame, size_col: str = "scale") -> DataFram
         return df.withColumn("company_size_std", F.lit(None).cast(T.StringType()))
 
     # Xóa xuống dòng, trim
-    cleaned = F.regexp_replace(F.trim(F.col(size_col)), r"[\n\r]", " ")
+    cleaned = F.regexp_replace(F.trim(F.col(size_col)), r"[\.\n\r]", " ")
 
     # Extract pattern "X-Y" hoặc "X+"
+
     df = df.withColumn(
         "company_size_std",
-        F.when(F.col(size_col).isNull(), F.lit(None))
+        F.when((F.col(size_col).isNull()) | (~cleaned.rlike(r"\d")), F.lit(None))
          .when(
              F.regexp_extract(cleaned, r"(\d+\+)", 1) != "",
              F.regexp_extract(cleaned, r"(\d+\+)", 1)
@@ -402,23 +414,27 @@ def enrich_salary_band(df: DataFrame) -> DataFrame:
     if "salary_min" not in df.columns or "salary_max" not in df.columns:
         return df.withColumn("salary_band", F.lit("Negotiable"))
     
-    usd_min = F.when(F.col("salary_currency") == "VND", F.col("salary_min") / 25000)\
-               .otherwise(F.col("salary_min"))
-    usd_max = F.when(F.col("salary_currency") == "VND", F.col("salary_max") / 25000)\
-               .otherwise(F.col("salary_max"))
+    # Chuẩn hóa tất cả về đơn vị "Triệu VNĐ" (tr VND)
+    vnd_min_tr = F.when(F.col("salary_currency") == "USD", F.col("salary_min") * 0.025)\
+                  .when(F.col("salary_min") > 1000, F.col("salary_min") / 1000000)\
+                  .otherwise(F.col("salary_min"))
+                  
+    vnd_max_tr = F.when(F.col("salary_currency") == "USD", F.col("salary_max") * 0.025)\
+                  .when(F.col("salary_max") > 1000, F.col("salary_max") / 1000000)\
+                  .otherwise(F.col("salary_max"))
     
-    avg_salary = F.when(usd_min.isNotNull() & usd_max.isNotNull(), (usd_min + usd_max) / 2)\
-                  .when(usd_min.isNotNull(), usd_min)\
-                  .when(usd_max.isNotNull(), usd_max)\
+    avg_salary = F.when(vnd_min_tr.isNotNull() & vnd_max_tr.isNotNull(), (vnd_min_tr + vnd_max_tr) / 2) \
+                  .when(vnd_min_tr.isNotNull(), vnd_min_tr)\
+                  .when(vnd_max_tr.isNotNull(), vnd_max_tr) \
                   .otherwise(F.lit(None).cast(T.DoubleType()))
-    
+
     df = df.withColumn(
         "salary_band",
         F.when(avg_salary.isNull(), F.lit("Negotiable"))
-         .when(avg_salary < 1000, F.lit("< $1000"))
-         .when((avg_salary >= 1000) & (avg_salary <= 2000), F.lit("$1000 - $2000"))
-         .when((avg_salary > 2000) & (avg_salary <= 3000), F.lit("$2000 - $3000"))
-         .otherwise(F.lit("> $3000"))
+         .when(avg_salary < 10, F.lit("< 10tr"))
+         .when((avg_salary >= 10) & (avg_salary <= 20), F.lit("10tr - 20tr"))
+         .when((avg_salary > 20) & (avg_salary <= 30), F.lit("20tr - 30tr"))
+         .otherwise(F.lit("> 30tr"))
     )
     return df
 
@@ -478,10 +494,10 @@ def standardize_job_category(df: DataFrame, title_col: str = "job_title") -> Dat
     
     category_mapping = {
         "Data Engineer": ["data engineer", "data warehouse", "etl", "big data", "kỹ sư dữ liệu"],
-        "Data Analyst": ["data analyst", "phân tích dữ liệu", "business intelligence", "bi analyst", 'data analysis'],
+        "Data Analyst": ["data analyst", "phân tích dữ liệu", "business intelligence", "bi analyst", 'data analysis', "analytics"],
         "Data Scientist": ["data scientist", "khoa học dữ liệu", "machine learning", "deep learning"],
         "Fullstack Developer": ["fullstack", "full-stack", "full stack"],
-        "Backend Developer": ["backend", "back-end", "back end", "python", "java", "php", "nodejs", "c#", "c\\+\\+", "\\.net", "golang", "ruby"],
+        "Backend Developer": ["backend", "back-end", "back end", "python", "java", "php", "nodejs", "c#", "c\\+\\+", "\\.net", "golang", "ruby", "software"],
         "Frontend Developer": ["frontend", "front-end", "front end", "react", "angular", "vue", "html", "css", "web developer"],
         "Mobile Developer": ["mobile", "ios", "android", "flutter", "react native", "swift", "kotlin"],
         "DevOps / SRE": ["devops", "sre", "system admin", "sysadmin", "infrastructure", "quản trị hệ thống", "cloud"],
