@@ -362,8 +362,8 @@ def standardize_company_size(df: DataFrame, size_col: str = "scale") -> DataFram
     if size_col not in df.columns:
         return df.withColumn("company_size_std", F.lit(None).cast(T.StringType()))
 
-    # Xóa xuống dòng, trim
-    cleaned = F.regexp_replace(F.trim(F.col(size_col)), r"[\.\n\r]", " ")
+    # Loại bỏ dấu chấm, phẩy (ví dụ: 10.000 -> 10000) và xuống dòng
+    cleaned = F.regexp_replace(F.trim(F.col(size_col)), r"[.,\n\r]", "")
 
     # Extract pattern "X-Y" hoặc "X+"
 
