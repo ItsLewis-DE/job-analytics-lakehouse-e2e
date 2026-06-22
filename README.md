@@ -15,61 +15,9 @@ Dự án áp dụng chặt chẽ kiến trúc **Medallion (Bronze, Silver, Gold)
 
 Toàn bộ luồng đi của dữ liệu từ khi nằm trên các trang tuyển dụng cho đến khi được phục vụ cho người dùng cuối qua Dashboard và Discord Bot:
 
-```mermaid
-graph TD
-    subgraph Sources ["🌍 Data Sources (Web/API)"]
-        T(TopCV)
-        I(ITViec)
-        V(VietnamWorks)
-        C(CareerViet)
-    end
+![Sơ đồ Kiến trúc Hệ thống Data Lakehouse](architect_image/Architecture.png)
 
-    subgraph Orchestration ["⏱️ Apache Airflow"]
-        DAG[daily_job_pipeline DAG]
-    end
-
-    subgraph Processing ["⚡ Processing Layer (Spark/Python)"]
-        Crawler[Data Crawlers]
-        Ingestor[Ingest: Landing ➔ Bronze]
-        Standardizer[Transform: Bronze ➔ Silver]
-        Unifier[Transform: Silver ➔ Gold]
-        Publisher[Load: Gold ➔ Postgres]
-    end
-
-    subgraph DataLake ["🗄️ MinIO Object Storage + Apache Iceberg"]
-        Landing[(Landing Zone\nRaw JSON/CSV)]
-        Bronze[(🥉 Bronze Layer\nIceberg Tables)]
-        Silver[(🥈 Silver Layer\nCleaned/SCD1)]
-        Gold[(🥇 Gold Layer\nStar Schema)]
-    end
-    
-    subgraph Serving ["🚀 Serving & Consumption"]
-        PG[(PostgreSQL\nServing DB)]
-        Superset[📊 Apache Superset\nBI Dashboard]
-        Trino[Presto/Trino\nSQL Engine]
-        Discord[🤖 Discord Bot\nChatbot Query]
-    end
-
-    %% Mappings
-    T & I & V & C -->|Scraping| Crawler
-    Crawler -->|Save Files| Landing
-    Landing -->|PySpark| Ingestor
-    Ingestor -->|Append| Bronze
-    Bronze -->|PySpark| Standardizer
-    Standardizer -->|Clean & SCD2 Merge| Silver
-    Silver -->|PySpark| Unifier
-    Unifier -->|Aggregations| Gold
-    
-    Gold -->|PySpark| Publisher
-    Publisher -->|JDBC| PG
-    PG -->|SQL| Superset
-    
-    Gold -.->|Hive Metastore| Trino
-    Trino -->|Trino Python Client| Discord
-
-    %% Orchestration arrows
-    DAG -.->|Triggers DockerOperator| Processing
-```
+![Sơ đồ DAG](architect_image/DAG.png)
 
 ---
 
