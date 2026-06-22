@@ -4,7 +4,8 @@ from src.transform.job_standardizer import (
     JobStandardizer,
     ITVIEC_COLUMN_MAPPING,
     VIETNAMWORKS_COLUMN_MAPPING,
-    TOPCV_COLUMN_MAPPING
+    TOPCV_COLUMN_MAPPING,
+    CAREERVIET_COLUMN_MAPPING
 )
 
 VALID_SOURCES = ['itviec', 'vietnamworks', 'careerviet', 'topcv']

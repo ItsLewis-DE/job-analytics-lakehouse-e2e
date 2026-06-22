@@ -35,7 +35,7 @@ services:
       - postgres
       - minio
     environment:
-      IS_RESUME: 'true'
+      IS_RESUME: 'false'
       SERVICE_NAME: 'metastore'
       DB_DRIVER: 'postgres'
       SERVICE_OPTS: >
@@ -246,6 +246,31 @@ services:
       - superset_home:/app/superset_home
     command: >
       bash -c "pip install --target /app/.venv/lib/python3.10/site-packages psycopg2-binary && /app/docker/entrypoints/run-server.sh"
+
+  # Trino for querying Iceberg
+  trino:
+    image: trinodb/trino:latest
+    container_name: trino
+    depends_on:
+      - metastore
+      - minio
+    ports:
+      - "8089:8080"
+    volumes:
+      - ./config/trino/catalog:/etc/trino/catalog
+
+  # Discord Bot
+  discord-bot:
+    image: job-bot:latest
+    container_name: discord-bot
+    restart: always
+    depends_on:
+      - trino
+    env_file:
+      - ./bot/.env
+    environment:
+      - TRINO_HOST=trino
+      - TRINO_PORT=8080
 
 volumes:
   minio_data:

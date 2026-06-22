@@ -83,6 +83,7 @@ def main():
         "my_catalog.gold.dim_location": "dim_location",
         "my_catalog.gold.dim_job_category": "dim_job_category",
         "my_catalog.gold.dim_skill": "dim_skill",
+        "my_catalog.gold.dim_level": "dim_level",
         "my_catalog.gold.fact_job_postings": "fact_job_postings",
         "my_catalog.gold.bridge_job_skills": "bridge_job_skills",
     }
@@ -93,6 +94,7 @@ def main():
             sync_table_to_postgres(spark, iceberg_table, pg_table, jdbc_url, properties)
         except Exception as e:
             logger.error(f"Đồng bộ bảng {iceberg_table} thất bại. Error: {e}")
+            raise
             
     logger.info("HOÀN TẤT ĐỒNG BỘ TOÀN BỘ GOLD MARTS SANG POSTGRESQL!")
     spark.stop()

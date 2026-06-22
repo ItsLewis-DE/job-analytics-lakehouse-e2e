@@ -102,7 +102,7 @@ with DAG(
     for i in range(len(SOURCES)):
         crawl_tasks[SOURCES[i]] >> ingest_tasks[SOURCES[i]] >> standard_tasks[SOURCES[i]] >> gold_task
         
-        # Bắt task crawl hiện tại phải đợi task crawl trước đó chạy xong
+        #Bắt task crawl hiện tại phải đợi task crawl trước đó chạy xong
         if i > 0:
             crawl_tasks[SOURCES[i-1]] >> crawl_tasks[SOURCES[i]]
 

@@ -8,7 +8,6 @@ dependencies = [
     "boto3>=1.43.29",
     "bs4>=0.0.2",
     "curl-cffi>=0.15.0",
-    "python-dotenv>=1.0.1",
     "lxml>=6.1.1",
     "minio>=7.2.20",
     "pyspark==3.4.2",
@@ -16,4 +15,5 @@ dependencies = [
     "seleniumbase>=4.49.12",
     "pandas>=3.0.3",
     "pyarrow>=24.0.0",
+    "python-dotenv>=1.2.2",
 ]
