@@ -16,7 +16,7 @@ Dự án áp dụng chặt chẽ kiến trúc **Medallion (Bronze, Silver, Gold)
 | Lớp (Layer) / Vai trò | Công nghệ & Công cụ (Tech & Tools) |
 | --- | --- |
 | **Ngôn ngữ lập trình** | Python 3 |
-| **Thu thập dữ liệu (Extract)** | BeautifulSoup, Requests |
+| **Thu thập dữ liệu (Extract)** | BeautifulSoup, Requests, Selenium |
 | **Lưu trữ (Object Storage)**| MinIO (S3-compatible) |
 | **Định dạng bảng (Table Format)**| Apache Iceberg |
 | **Xử lý dữ liệu (Processing)** | Apache Spark (PySpark) |
