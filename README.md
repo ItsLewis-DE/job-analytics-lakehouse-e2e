@@ -19,6 +19,7 @@ Dự án áp dụng chặt chẽ kiến trúc **Medallion (Bronze, Silver, Gold)
 | **Thu thập dữ liệu (Extract)** | BeautifulSoup, Requests, Selenium |
 | **Lưu trữ (Object Storage)**| MinIO (S3-compatible) |
 | **Định dạng bảng (Table Format)**| Apache Iceberg |
+| **Catalog**| Hive Metastore |
 | **Xử lý dữ liệu (Processing)** | Apache Spark (PySpark) |
 | **Điều phối luồng (Orchestration)**| Apache Airflow |
 | **Truy vấn phân tán (Query Engine)**| Trino |
