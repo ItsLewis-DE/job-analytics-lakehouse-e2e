@@ -84,7 +84,7 @@ Dưới đây là một số hình ảnh thực tế từ các công cụ trong 
   <br/><br/>
   <img src="architect_image/image%20copy.png" width="800" alt="Screenshot 2"/>
   <br/><br/>
-  <img src="architect_image/image%20copy%202.png" width="800" alt="Screenshot 3"/>
+  <img src="architect_image/image%20%202.png" width="800" alt="Screenshot 3"/>
   <br/><br/>
   <img src="architect_image/image%20copy%203.png" width="800" alt="Screenshot 4"/>
   <br/><br/>
@@ -93,6 +93,8 @@ Dưới đây là một số hình ảnh thực tế từ các công cụ trong 
   <img src="architect_image/image%20copy%205.png" width="800" alt="Screenshot 6"/>
   <br/><br/>
   <img src="architect_image/image%20copy%206.png" width="800" alt="Screenshot 7"/>
+  <br/><br/>
+  <img src="architect_image/image.png" width="800" alt="Screenshot 8"/>
 </div>
 
 ---
