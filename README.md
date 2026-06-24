@@ -44,7 +44,7 @@ Toàn bộ luồng đi của dữ liệu từ khi nằm trên các trang tuyển
 
 ### 📥 Data Crawling & Landing
 - Thu thập dữ liệu hàng ngày bằng Python từ 4 nguồn: **TopCV, ITViec, VietnamWorks, CareerViet**.
-- Dữ liệu thô (Raw JSON/CSV) được đẩy thẳng vào `Landing Zone` trên MinIO.
+- Dữ liệu thô (Raw JSON) được đẩy thẳng vào `Landing Zone` trên MinIO.
 
 ### 🥉 Lớp Bronze (Raw Data)
 - **Công nghệ**: PySpark & Apache Iceberg.
